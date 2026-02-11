@@ -12,6 +12,10 @@ pub mod sys;
 #[path = "linux.rs"]
 pub mod sys;
 
+#[cfg(target_os = "cascade")]
+#[path = "cascade.rs"]
+pub mod sys;
+
 pub mod logger;
 
 use core::ffi::VaList;

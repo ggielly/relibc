@@ -28,6 +28,12 @@ pub(crate) mod sys;
 #[path = "redox/mod.rs"]
 pub(crate) mod sys;
 
+// CASCADE-OS-START
+#[cfg(all(not(feature = "no_std"), target_os = "cascade"))]
+#[path = "cascade/mod.rs"]
+pub(crate) mod sys;
+// CASCADE-OS-END
+
 pub use self::rlb::{Line, RawLineBuffer};
 pub mod rlb;
 
@@ -36,6 +42,10 @@ pub mod auxv_defs;
 
 #[cfg(target_os = "redox")]
 pub use redox_rt::auxv_defs;
+// CASCADE-OS-START
+#[cfg(target_os = "cascade")]
+pub use self::sys::auxv_defs;
+// CASCADE-OS-END
 
 use self::types::*;
 pub mod types;

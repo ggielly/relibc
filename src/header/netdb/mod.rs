@@ -37,6 +37,10 @@ pub mod sys;
 #[path = "redox.rs"]
 pub mod sys;
 
+#[cfg(target_os = "cascade")]
+#[path = "cascade.rs"]
+pub mod sys;
+
 pub use self::host::*;
 pub mod host;
 

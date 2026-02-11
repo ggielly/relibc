@@ -8,6 +8,10 @@ pub mod sys;
 #[path = "redox.rs"]
 pub mod sys;
 
+#[cfg(target_os = "cascade")]
+#[path = "cascade.rs"]
+pub mod sys;
+
 pub use self::sys::*;
 
 pub(crate) const UTC: *const c_char = b"UTC\0".as_ptr().cast();

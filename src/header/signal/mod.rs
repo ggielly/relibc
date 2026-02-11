@@ -33,6 +33,10 @@ pub mod sys;
 #[path = "redox.rs"]
 pub mod sys;
 
+#[cfg(target_os = "cascade")]
+#[path = "cascade.rs"]
+pub mod sys;
+
 type SigSet = BitSet<[u64; 1]>;
 
 pub(crate) const SIG_DFL: usize = 0;

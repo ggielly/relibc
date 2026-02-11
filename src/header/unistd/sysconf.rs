@@ -8,6 +8,10 @@ mod sys;
 #[path = "sysconf/linux.rs"]
 mod sys;
 
+#[cfg(target_os = "cascade")]
+#[path = "sysconf/cascade.rs"]
+mod sys;
+
 pub use sys::*;
 
 use core::ffi::{c_int, c_long};

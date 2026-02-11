@@ -22,6 +22,10 @@ pub mod sys;
 #[path = "redox.rs"]
 pub mod sys;
 
+#[cfg(target_os = "cascade")]
+#[path = "cascade.rs"]
+pub mod sys;
+
 pub const MADV_NORMAL: c_int = 0;
 pub const MADV_RANDOM: c_int = 1;
 pub const MADV_SEQUENTIAL: c_int = 2;

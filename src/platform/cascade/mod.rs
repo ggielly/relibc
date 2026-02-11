@@ -14,7 +14,10 @@ use crate::header::time::itimerspec;
 use crate::header::signal::sigevent;
 use crate::out::Out;
 
+use core::ffi::VaList;
+
 pub mod auxv_defs;
+pub mod va_list;
 
 pub struct Sys;
 

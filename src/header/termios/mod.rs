@@ -78,6 +78,18 @@ pub unsafe extern "C" fn tcgetattr(fd: c_int, out: *mut termios) -> c_int {
     unsafe { sys_ioctl::ioctl(fd, sys_ioctl::TCGETS, out as *mut c_void) }
 }
 
+// Définition pour CascadeOS
+#[cfg(target_os = "cascade")]
+#[repr(C)]
+#[derive(Default, Clone)]
+pub struct termios {
+    pub c_iflag: tcflag_t,
+    pub c_oflag: tcflag_t,
+    pub c_cflag: tcflag_t,
+    pub c_lflag: tcflag_t,
+    pub c_cc: [cc_t; NCCS],
+}
+
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/tcsetattr.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn tcsetattr(fd: c_int, act: c_int, value: *const termios) -> c_int {

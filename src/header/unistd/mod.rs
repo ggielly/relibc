@@ -4,7 +4,7 @@
 
 use core::{
     convert::TryFrom,
-    ffi::VaListImpl,
+    ffi::VaList,
     mem::{self, MaybeUninit},
     ptr, slice,
 };

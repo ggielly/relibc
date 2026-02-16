@@ -28,11 +28,13 @@ pub(crate) mod sys;
 #[path = "redox/mod.rs"]
 pub(crate) mod sys;
 
-// CASCADE-OS-START
-#[cfg(all(not(feature = "no_std"), target_os = "cascade"))]
+#[cfg(target_os = "cascade")]
 #[path = "cascade/mod.rs"]
 pub(crate) mod sys;
-// CASCADE-OS-END
+
+#[cfg(target_os = "strat9")]
+#[path = "strat9/mod.rs"]
+pub(crate) mod sys;
 
 pub use self::rlb::{Line, RawLineBuffer};
 pub mod rlb;

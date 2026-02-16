@@ -40,7 +40,7 @@ mismatched_lifetime_syntaxes = "deny"
 non_camel_case_types = "allow"
 non_snake_case = "allow" # TODO review occuurences
 non_upper_case_globals = "allow" # TODO review occuurences
-unexpected_cfgs = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("strat9"))'] }
 unpredictable_function_pointer_comparisons = "deny"
 unreachable_code = "allow" # TODO review occuurences
 unsafe_op_in_unsafe_fn = "deny"

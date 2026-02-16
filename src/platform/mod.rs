@@ -49,6 +49,9 @@ pub use redox_rt::auxv_defs;
 pub use self::sys::auxv_defs;
 // CASCADE-OS-END
 
+#[cfg(target_os = "strat9")]
+pub use self::sys::auxv_defs;
+
 use self::types::*;
 pub mod types;
 

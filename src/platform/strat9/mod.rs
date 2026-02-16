@@ -13,9 +13,9 @@ use crate::{
     error::{Errno, Result},
     header::{
         bits_time::timespec,
-        errno::{ENOSYS, EINVAL},
+        errno::{EINVAL, ENOSYS},
         fcntl::{AT_EMPTY_PATH, AT_FDCWD},
-        signal::{sigevent, SIGCHLD},
+        signal::{SIGCHLD, sigevent},
         sys_resource::{rlimit, rusage},
         sys_select::timeval,
         sys_stat::stat,
@@ -30,15 +30,19 @@ use crate::{
 };
 use core::{num::NonZeroU64, ptr};
 
+pub mod auxv_defs;
 mod epoll;
 mod ptrace;
 mod signal;
 mod socket;
+pub mod va_list;
 
 // Strat9 syscall numbers (from docs/NATIVE_SYSCALLS.md)
 const SYS_NULL: usize = 0;
 const SYS_HANDLE_DUPLICATE: usize = 1;
 const SYS_HANDLE_CLOSE: usize = 2;
+const SYS_MEM_MAP: usize = 100;
+const SYS_MEM_UNMAP: usize = 101;
 const SYS_IPC_CREATE_PORT: usize = 200;
 const SYS_IPC_SEND: usize = 201;
 const SYS_IPC_RECV: usize = 202;
@@ -54,6 +58,7 @@ const SYS_OPEN: usize = 403;
 const SYS_WRITE: usize = 404;
 const SYS_READ: usize = 405;
 const SYS_CLOSE: usize = 406;
+const SYS_FCNTL: usize = 407;
 const SYS_VOLUME_READ: usize = 420;
 const SYS_VOLUME_WRITE: usize = 421;
 const SYS_VOLUME_INFO: usize = 422;
@@ -203,9 +208,20 @@ impl Pal for Sys {
         Err(Errno(ENOSYS))
     }
 
-    unsafe fn brk(_addr: *mut c_void) -> Result<*mut c_void> {
-        // Strat9 doesn't have brk - libc must use SYS_MEM_MAP for anonymous mappings
-        Err(Errno(ENOSYS))
+    unsafe fn brk(addr: *mut c_void) -> Result<*mut c_void> {
+        // Emulate brk using mmap (Strat9 doesn't have native brk)
+        static mut BRK_CUR: *mut c_void = ptr::null_mut();
+        unsafe {
+            if addr.is_null() {
+                if BRK_CUR.is_null() {
+                    let initial = Self::mmap(ptr::null_mut(), 65536, 0, 0, -1, 0)?;
+                    BRK_CUR = initial.add(65536);
+                    return Ok(initial);
+                }
+                return Ok(BRK_CUR);
+            }
+            Ok(BRK_CUR)
+        }
     }
 
     fn chdir(_path: CStr) -> Result<()> {
@@ -225,9 +241,11 @@ impl Pal for Sys {
         Err(Errno(ENOSYS))
     }
 
-    fn clock_gettime(_clk_id: clockid_t, _tp: Out<timespec>) -> Result<()> {
-        // TODO: Implement SYS_TIME_MONOTONIC or similar
-        Err(Errno(ENOSYS))
+    fn clock_gettime(_clk_id: clockid_t, mut tp: Out<timespec>) -> Result<()> {
+        let ticks = unsafe { syscall!(SYS_CLOCK_GETTIME) };
+        tp.tv_sec = (ticks / 1000) as i64;
+        tp.tv_nsec = ((ticks % 1000) * 1_000_000) as i64;
+        Ok(())
     }
 
     unsafe fn clock_settime(_clk_id: clockid_t, _tp: *const timespec) -> Result<()> {
@@ -239,15 +257,19 @@ impl Pal for Sys {
         Ok(())
     }
 
-    fn dup(_fildes: c_int) -> Result<c_int> {
-        Err(Errno(ENOSYS))
+    fn dup(fildes: c_int) -> Result<c_int> {
+        e_raw(unsafe { syscall!(SYS_HANDLE_DUPLICATE, fildes as u64) }).map(|r| r as c_int)
     }
 
     fn dup2(_fildes: c_int, _fildes2: c_int) -> Result<c_int> {
         Err(Errno(ENOSYS))
     }
 
-    unsafe fn execve(_path: CStr, _argv: *const *mut c_char, _envp: *const *mut c_char) -> Result<()> {
+    unsafe fn execve(
+        _path: CStr,
+        _argv: *const *mut c_char,
+        _envp: *const *mut c_char,
+    ) -> Result<()> {
         Err(Errno(ENOSYS))
     }
 
@@ -307,8 +329,8 @@ impl Pal for Sys {
         Err(Errno(ENOSYS))
     }
 
-    fn fcntl(_fildes: c_int, _cmd: c_int, _arg: c_ulonglong) -> Result<c_int> {
-        Err(Errno(ENOSYS))
+    fn fcntl(fildes: c_int, cmd: c_int, arg: c_ulonglong) -> Result<c_int> {
+        e_raw(unsafe { syscall!(SYS_FCNTL, fildes as u64, cmd as u64, arg) }).map(|r| r as c_int)
     }
 
     unsafe fn fork() -> Result<pid_t> {
@@ -328,17 +350,15 @@ impl Pal for Sys {
     }
 
     unsafe fn futex_wait(addr: *mut u32, val: u32, deadline: Option<&timespec>) -> Result<()> {
-        let deadline_ns = deadline.map_or(0u64, |d| (d.tv_sec as u64) * 1_000_000_000 + (d.tv_nsec as u64));
-        e_raw(unsafe {
-            syscall!(SYS_FUTEX_WAIT, addr as u64, val as u64, deadline_ns)
-        })?;
+        let deadline_ns = deadline.map_or(0u64, |d| {
+            (d.tv_sec as u64) * 1_000_000_000 + (d.tv_nsec as u64)
+        });
+        e_raw(unsafe { syscall!(SYS_FUTEX_WAIT, addr as u64, val as u64, deadline_ns) })?;
         Ok(())
     }
 
     unsafe fn futex_wake(addr: *mut u32, num: u32) -> Result<u32> {
-        Ok(e_raw(unsafe {
-            syscall!(SYS_FUTEX_WAKE, addr as u64, num as u64)
-        })? as u32)
+        Ok(e_raw(unsafe { syscall!(SYS_FUTEX_WAKE, addr as u64, num as u64) })? as u32)
     }
 
     unsafe fn futimens(_fd: c_int, _times: *const timespec) -> Result<()> {
@@ -447,8 +467,11 @@ impl Pal for Sys {
         1
     }
 
-    fn gettimeofday(_tp: Out<timeval>, _tzp: Option<Out<timezone>>) -> Result<()> {
-        Err(Errno(ENOSYS))
+    fn gettimeofday(mut tp: Out<timeval>, _tzp: Option<Out<timezone>>) -> Result<()> {
+        let ticks = unsafe { syscall!(SYS_CLOCK_GETTIME) };
+        tp.tv_sec = (ticks / 1000) as i64;
+        tp.tv_usec = ((ticks % 1000) * 1000) as i64;
+        Ok(())
     }
 
     fn getuid() -> uid_t {
@@ -464,8 +487,10 @@ impl Pal for Sys {
         Err(Errno(ENOSYS))
     }
 
-    fn lseek(_fildes: c_int, _offset: off_t, _whence: c_int) -> Result<off_t> {
-        Err(Errno(ENOSYS))
+    fn lseek(_fildes: c_int, offset: off_t, _whence: c_int) -> Result<off_t> {
+        // Simple implementation - just return the offset
+        // TODO: Implement proper seek via IPC when VFS supports it
+        Ok(offset)
     }
 
     fn mkdirat(_fildes: c_int, _path: CStr, _mode: mode_t) -> Result<()> {
@@ -501,15 +526,15 @@ impl Pal for Sys {
     }
 
     unsafe fn mmap(
-        _addr: *mut c_void,
-        _len: usize,
-        _prot: c_int,
+        addr: *mut c_void,
+        len: usize,
+        prot: c_int,
         _flags: c_int,
         _fildes: c_int,
         _off: off_t,
     ) -> Result<*mut c_void> {
-        // TODO: Implement SYS_MEM_MAP
-        Err(Errno(ENOSYS))
+        e_raw(unsafe { syscall!(SYS_MEM_MAP, addr as u64, len as u64, prot as u64) })
+            .map(|r| r as *mut c_void)
     }
 
     unsafe fn mremap(
@@ -542,17 +567,25 @@ impl Pal for Sys {
         Err(Errno(ENOSYS))
     }
 
-    unsafe fn munmap(_addr: *mut c_void, _len: usize) -> Result<()> {
-        Err(Errno(ENOSYS))
+    unsafe fn munmap(addr: *mut c_void, len: usize) -> Result<()> {
+        e_raw(unsafe { syscall!(SYS_MEM_UNMAP, addr as u64, len as u64) })?;
+        Ok(())
     }
 
     unsafe fn nanosleep(_rqtp: *const timespec, _rmtp: *mut timespec) -> Result<()> {
         Err(Errno(ENOSYS))
     }
 
-    fn open(_path: CStr, _oflag: c_int, _mode: mode_t) -> Result<c_int> {
-        // TODO: Implement via IPC to VFS
-        Err(Errno(ENOSYS))
+    fn open(path: CStr, oflag: c_int, _mode: mode_t) -> Result<c_int> {
+        e_raw(unsafe {
+            syscall!(
+                SYS_OPEN,
+                path.as_ptr() as u64,
+                path.to_bytes().len() as u64,
+                oflag as u64
+            )
+        })
+        .map(|r| r as c_int)
     }
 
     fn pipe2(_fildes: Out<[c_int; 2]>, _flags: c_int) -> Result<()> {
@@ -584,7 +617,12 @@ impl Pal for Sys {
 
     fn read(fildes: c_int, buf: &mut [u8]) -> Result<usize> {
         e_raw(unsafe {
-            syscall!(SYS_READ, fildes as u64, buf.as_mut_ptr() as u64, buf.len() as u64)
+            syscall!(
+                SYS_READ,
+                fildes as u64,
+                buf.as_mut_ptr() as u64,
+                buf.len() as u64
+            )
         })
     }
 
@@ -698,7 +736,12 @@ impl Pal for Sys {
 
     fn write(fildes: c_int, buf: &[u8]) -> Result<usize> {
         e_raw(unsafe {
-            syscall!(SYS_WRITE, fildes as u64, buf.as_ptr() as u64, buf.len() as u64)
+            syscall!(
+                SYS_WRITE,
+                fildes as u64,
+                buf.as_ptr() as u64,
+                buf.len() as u64
+            )
         })
     }
 

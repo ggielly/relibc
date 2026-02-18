@@ -12,6 +12,10 @@ pub mod sys;
 #[path = "cascade.rs"]
 pub mod sys;
 
+#[cfg(target_os = "strat9")]
+#[path = "strat9.rs"]
+pub mod sys;
+
 pub use self::sys::*;
 
 pub(crate) const UTC: *const c_char = b"UTC\0".as_ptr().cast();

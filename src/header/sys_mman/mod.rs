@@ -26,6 +26,10 @@ pub mod sys;
 #[path = "cascade.rs"]
 pub mod sys;
 
+#[cfg(target_os = "strat9")]
+#[path = "strat9.rs"]
+pub mod sys;
+
 pub const MADV_NORMAL: c_int = 0;
 pub const MADV_RANDOM: c_int = 1;
 pub const MADV_SEQUENTIAL: c_int = 2;

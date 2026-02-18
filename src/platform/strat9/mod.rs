@@ -38,40 +38,41 @@ mod socket;
 pub mod va_list;
 
 // Strat9 syscall numbers (from docs/NATIVE_SYSCALLS.md)
-const SYS_NULL: usize = 0;
-const SYS_HANDLE_DUPLICATE: usize = 1;
-const SYS_HANDLE_CLOSE: usize = 2;
-const SYS_MEM_MAP: usize = 100;
-const SYS_MEM_UNMAP: usize = 101;
-const SYS_IPC_CREATE_PORT: usize = 200;
-const SYS_IPC_SEND: usize = 201;
-const SYS_IPC_RECV: usize = 202;
-const SYS_IPC_CALL: usize = 203;
-const SYS_IPC_REPLY: usize = 204;
-const SYS_PROC_EXIT: usize = 300;
-const SYS_PROC_YIELD: usize = 301;
-const SYS_FUTEX_WAIT: usize = 302;
-const SYS_FUTEX_WAKE: usize = 303;
-const SYS_KILL: usize = 320;
-const SYS_SIGPROCMASK: usize = 321;
-const SYS_OPEN: usize = 403;
-const SYS_WRITE: usize = 404;
-const SYS_READ: usize = 405;
-const SYS_CLOSE: usize = 406;
-const SYS_FCNTL: usize = 407;
-const SYS_VOLUME_READ: usize = 420;
-const SYS_VOLUME_WRITE: usize = 421;
-const SYS_VOLUME_INFO: usize = 422;
-const SYS_CLOCK_GETTIME: usize = 500;
-const SYS_DEBUG_LOG: usize = 600;
+pub const SYS_NULL: usize = 0;
+pub const SYS_HANDLE_DUPLICATE: usize = 1;
+pub const SYS_HANDLE_CLOSE: usize = 2;
+pub const SYS_MEM_MAP: usize = 100;
+pub const SYS_MEM_UNMAP: usize = 101;
+pub const SYS_IPC_CREATE_PORT: usize = 200;
+pub const SYS_IPC_SEND: usize = 201;
+pub const SYS_IPC_RECV: usize = 202;
+pub const SYS_IPC_CALL: usize = 203;
+pub const SYS_IPC_REPLY: usize = 204;
+pub const SYS_PROC_EXIT: usize = 300;
+pub const SYS_PROC_YIELD: usize = 301;
+pub const SYS_FUTEX_WAIT: usize = 302;
+pub const SYS_FUTEX_WAKE: usize = 303;
+pub const SYS_KILL: usize = 320;
+pub const SYS_SIGPROCMASK: usize = 321;
+pub const SYS_OPEN: usize = 403;
+pub const SYS_WRITE: usize = 404;
+pub const SYS_READ: usize = 405;
+pub const SYS_CLOSE: usize = 406;
+pub const SYS_FCNTL: usize = 407;
+pub const SYS_VOLUME_READ: usize = 420;
+pub const SYS_VOLUME_WRITE: usize = 421;
+pub const SYS_VOLUME_INFO: usize = 422;
+pub const SYS_CLOCK_GETTIME: usize = 500;
+pub const SYS_DEBUG_LOG: usize = 600;
 
-/// Strat9 syscall macro helper
+// Export syscall macro for use in submodules
 #[cfg(target_arch = "x86_64")]
-macro_rules! syscall {
+#[macro_export]
+macro_rules! strat9_syscall {
     ($nr:expr) => {{
         let ret: u64;
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "syscall",
                 in("rax") $nr,
                 out("rcx") _,
@@ -85,7 +86,7 @@ macro_rules! syscall {
     ($nr:expr, $arg1:expr) => {{
         let ret: u64;
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "syscall",
                 in("rax") $nr,
                 in("rdi") $arg1,
@@ -100,7 +101,7 @@ macro_rules! syscall {
     ($nr:expr, $arg1:expr, $arg2:expr) => {{
         let ret: u64;
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "syscall",
                 in("rax") $nr,
                 in("rdi") $arg1,
@@ -116,7 +117,7 @@ macro_rules! syscall {
     ($nr:expr, $arg1:expr, $arg2:expr, $arg3:expr) => {{
         let ret: u64;
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "syscall",
                 in("rax") $nr,
                 in("rdi") $arg1,
@@ -133,7 +134,7 @@ macro_rules! syscall {
     ($nr:expr, $arg1:expr, $arg2:expr, $arg3:expr, $arg4:expr) => {{
         let ret: u64;
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "syscall",
                 in("rax") $nr,
                 in("rdi") $arg1,
@@ -151,7 +152,7 @@ macro_rules! syscall {
     ($nr:expr, $arg1:expr, $arg2:expr, $arg3:expr, $arg4:expr, $arg5:expr) => {{
         let ret: u64;
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "syscall",
                 in("rax") $nr,
                 in("rdi") $arg1,
@@ -170,7 +171,7 @@ macro_rules! syscall {
     ($nr:expr, $arg1:expr, $arg2:expr, $arg3:expr, $arg4:expr, $arg5:expr, $arg6:expr) => {{
         let ret: u64;
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "syscall",
                 in("rax") $nr,
                 in("rdi") $arg1,
@@ -242,7 +243,7 @@ impl Pal for Sys {
     }
 
     fn clock_gettime(_clk_id: clockid_t, mut tp: Out<timespec>) -> Result<()> {
-        let ticks = unsafe { syscall!(SYS_CLOCK_GETTIME) };
+        let ticks = unsafe { strat9_syscall!(SYS_CLOCK_GETTIME) };
         tp.tv_sec = (ticks / 1000) as i64;
         tp.tv_nsec = ((ticks % 1000) * 1_000_000) as i64;
         Ok(())
@@ -253,12 +254,12 @@ impl Pal for Sys {
     }
 
     fn close(fildes: c_int) -> Result<()> {
-        e_raw(unsafe { syscall!(SYS_CLOSE, fildes as u64) })?;
+        e_raw(unsafe { strat9_syscall!(SYS_CLOSE, fildes as u64) })?;
         Ok(())
     }
 
     fn dup(fildes: c_int) -> Result<c_int> {
-        e_raw(unsafe { syscall!(SYS_HANDLE_DUPLICATE, fildes as u64) }).map(|r| r as c_int)
+        e_raw(unsafe { strat9_syscall!(SYS_HANDLE_DUPLICATE, fildes as u64) }).map(|r| r as c_int)
     }
 
     fn dup2(_fildes: c_int, _fildes2: c_int) -> Result<c_int> {
@@ -283,7 +284,7 @@ impl Pal for Sys {
 
     fn exit(status: c_int) -> ! {
         unsafe {
-            syscall!(SYS_PROC_EXIT, status as u64);
+            strat9_syscall!(SYS_PROC_EXIT, status as u64);
         }
         loop {}
     }
@@ -330,7 +331,7 @@ impl Pal for Sys {
     }
 
     fn fcntl(fildes: c_int, cmd: c_int, arg: c_ulonglong) -> Result<c_int> {
-        e_raw(unsafe { syscall!(SYS_FCNTL, fildes as u64, cmd as u64, arg) }).map(|r| r as c_int)
+        e_raw(unsafe { strat9_syscall!(SYS_FCNTL, fildes as u64, cmd as u64, arg) }).map(|r| r as c_int)
     }
 
     unsafe fn fork() -> Result<pid_t> {
@@ -353,12 +354,12 @@ impl Pal for Sys {
         let deadline_ns = deadline.map_or(0u64, |d| {
             (d.tv_sec as u64) * 1_000_000_000 + (d.tv_nsec as u64)
         });
-        e_raw(unsafe { syscall!(SYS_FUTEX_WAIT, addr as u64, val as u64, deadline_ns) })?;
+        e_raw(unsafe { strat9_syscall!(SYS_FUTEX_WAIT, addr as u64, val as u64, deadline_ns) })?;
         Ok(())
     }
 
     unsafe fn futex_wake(addr: *mut u32, num: u32) -> Result<u32> {
-        Ok(e_raw(unsafe { syscall!(SYS_FUTEX_WAKE, addr as u64, num as u64) })? as u32)
+        Ok(e_raw(unsafe { strat9_syscall!(SYS_FUTEX_WAKE, addr as u64, num as u64) })? as u32)
     }
 
     unsafe fn futimens(_fd: c_int, _times: *const timespec) -> Result<()> {
@@ -468,7 +469,7 @@ impl Pal for Sys {
     }
 
     fn gettimeofday(mut tp: Out<timeval>, _tzp: Option<Out<timezone>>) -> Result<()> {
-        let ticks = unsafe { syscall!(SYS_CLOCK_GETTIME) };
+        let ticks = unsafe { strat9_syscall!(SYS_CLOCK_GETTIME) };
         tp.tv_sec = (ticks / 1000) as i64;
         tp.tv_usec = ((ticks % 1000) * 1000) as i64;
         Ok(())
@@ -533,7 +534,7 @@ impl Pal for Sys {
         _fildes: c_int,
         _off: off_t,
     ) -> Result<*mut c_void> {
-        e_raw(unsafe { syscall!(SYS_MEM_MAP, addr as u64, len as u64, prot as u64) })
+        e_raw(unsafe { strat9_syscall!(SYS_MEM_MAP, addr as u64, len as u64, prot as u64) })
             .map(|r| r as *mut c_void)
     }
 
@@ -568,7 +569,7 @@ impl Pal for Sys {
     }
 
     unsafe fn munmap(addr: *mut c_void, len: usize) -> Result<()> {
-        e_raw(unsafe { syscall!(SYS_MEM_UNMAP, addr as u64, len as u64) })?;
+        e_raw(unsafe { strat9_syscall!(SYS_MEM_UNMAP, addr as u64, len as u64) })?;
         Ok(())
     }
 
@@ -578,7 +579,7 @@ impl Pal for Sys {
 
     fn open(path: CStr, oflag: c_int, _mode: mode_t) -> Result<c_int> {
         e_raw(unsafe {
-            syscall!(
+            strat9_syscall!(
                 SYS_OPEN,
                 path.as_ptr() as u64,
                 path.to_bytes().len() as u64,
@@ -617,7 +618,7 @@ impl Pal for Sys {
 
     fn read(fildes: c_int, buf: &mut [u8]) -> Result<usize> {
         e_raw(unsafe {
-            syscall!(
+            strat9_syscall!(
                 SYS_READ,
                 fildes as u64,
                 buf.as_mut_ptr() as u64,
@@ -661,7 +662,7 @@ impl Pal for Sys {
     }
 
     fn sched_yield() -> Result<()> {
-        e_raw(unsafe { syscall!(SYS_PROC_YIELD) })?;
+        e_raw(unsafe { strat9_syscall!(SYS_PROC_YIELD) })?;
         Ok(())
     }
 
@@ -736,7 +737,7 @@ impl Pal for Sys {
 
     fn write(fildes: c_int, buf: &[u8]) -> Result<usize> {
         e_raw(unsafe {
-            syscall!(
+            strat9_syscall!(
                 SYS_WRITE,
                 fildes as u64,
                 buf.as_ptr() as u64,
@@ -751,7 +752,7 @@ impl Pal for Sys {
 
     fn verify() -> bool {
         // Check if SYS_NULL returns the magic value
-        let ret = unsafe { syscall!(SYS_NULL) };
+        let ret = unsafe { strat9_syscall!(SYS_NULL) };
         ret == 0x57A79 // "STRAT9" magic
     }
 }

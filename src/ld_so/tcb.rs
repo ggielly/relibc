@@ -46,6 +46,9 @@ pub type OsSpecific = redox_rt::signal::RtSigarea;
 #[cfg(target_os = "cascade")]
 pub type OsSpecific = ();
 
+#[cfg(target_os = "strat9")]
+pub type OsSpecific = ();
+
 #[derive(Debug)]
 #[repr(C)]
 // FIXME: Only return &Tcb, and use interior mutability, since it contains the Pthread struct

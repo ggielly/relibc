@@ -27,6 +27,10 @@ pub mod sys;
 #[path = "cascade.rs"]
 pub mod sys;
 
+#[cfg(target_os = "strat9")]
+#[path = "strat9.rs"]
+pub mod sys;
+
 pub const EPOLL_CTL_ADD: c_int = 1;
 pub const EPOLL_CTL_DEL: c_int = 2;
 pub const EPOLL_CTL_MOD: c_int = 3;

@@ -33,6 +33,7 @@ pub(crate) mod sys;
 pub(crate) mod sys;
 
 #[cfg(target_os = "strat9")]
+#[macro_use]
 #[path = "strat9/mod.rs"]
 pub(crate) mod sys;
 

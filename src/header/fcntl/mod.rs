@@ -29,6 +29,10 @@ pub mod sys;
 #[path = "cascade.rs"]
 pub mod sys;
 
+#[cfg(target_os = "strat9")]
+#[path = "strat9.rs"]
+pub mod sys;
+
 pub const F_DUPFD: c_int = 0;
 pub const F_GETFD: c_int = 1;
 pub const F_SETFD: c_int = 2;

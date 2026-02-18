@@ -9,3 +9,6 @@ sysroot/
 /.vim
 .vscode/
 
+AGENT.md
+CLAUDE.md
+QWEN.md

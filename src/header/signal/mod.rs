@@ -37,6 +37,10 @@ pub mod sys;
 #[path = "cascade.rs"]
 pub mod sys;
 
+#[cfg(target_os = "strat9")]
+#[path = "strat9.rs"]
+pub mod sys;
+
 type SigSet = BitSet<[u64; 1]>;
 
 pub(crate) const SIG_DFL: usize = 0;

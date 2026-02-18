@@ -12,6 +12,10 @@ mod sys;
 #[path = "sysconf/cascade.rs"]
 mod sys;
 
+#[cfg(target_os = "strat9")]
+#[path = "sysconf/strat9.rs"]
+mod sys;
+
 pub use sys::*;
 
 use core::ffi::{c_int, c_long};

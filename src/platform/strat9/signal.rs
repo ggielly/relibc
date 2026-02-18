@@ -6,15 +6,14 @@
 
 use super::super::{Pal, PalSignal, types::*};
 use super::Sys;
-use crate::{
-    error::{Errno, Result},
-    header::{
-        bits_time::timespec,
-        errno::ENOSYS,
-        signal::{sigaction, siginfo_t, sigset_t, sigval, stack_t},
-        sys_time::itimerval,
-    },
+use crate::header::{
+    bits_time::timespec,
+    errno::ENOSYS,
+    signal::{sigaction, siginfo_t, sigset_t, sigval, stack_t},
+    sys_time::itimerval,
 };
+use super::{e_raw, SYS_KILL, SYS_SIGPROCMASK};
+use crate::strat9_syscall as syscall;
 
 impl PalSignal for Sys {
     fn getitimer(_which: c_int, _out: &mut itimerval) -> Result<()> {
@@ -24,9 +23,7 @@ impl PalSignal for Sys {
 
     fn kill(pid: pid_t, sig: c_int) -> Result<()> {
         // Uses SYS_KILL (320) from the kernel
-        super::e_raw(unsafe {
-            super::syscall!(super::SYS_KILL, pid as u64, sig as u64)
-        })?;
+        e_raw(unsafe { syscall!(SYS_KILL, pid as u64, sig as u64) })?;
         Ok(())
     }
 
@@ -79,9 +76,7 @@ impl PalSignal for Sys {
         let set_ptr = set.map_or(0u64, |s| s as *const _ as u64);
         let oset_ptr = oset.map_or(0u64, |o| o as *mut _ as u64);
 
-        super::e_raw(unsafe {
-            super::syscall!(super::SYS_SIGPROCMASK, how as u64, set_ptr, oset_ptr)
-        })?;
+        e_raw(unsafe { syscall!(SYS_SIGPROCMASK, how as u64, set_ptr, oset_ptr) })?;
         Ok(())
     }
 

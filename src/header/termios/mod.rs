@@ -27,6 +27,10 @@ pub mod sys;
 #[path = "cascade.rs"]
 pub mod sys;
 
+#[cfg(target_os = "strat9")]
+#[path = "strat9.rs"]
+pub mod sys;
+
 pub type cc_t = u8;
 pub type speed_t = u32;
 pub type tcflag_t = u32;
@@ -78,8 +82,8 @@ pub unsafe extern "C" fn tcgetattr(fd: c_int, out: *mut termios) -> c_int {
     unsafe { sys_ioctl::ioctl(fd, sys_ioctl::TCGETS, out as *mut c_void) }
 }
 
-// Définition pour CascadeOS
-#[cfg(target_os = "cascade")]
+// Définition pour Strat9-OS
+#[cfg(any(target_os = "cascade", target_os = "strat9"))]
 #[repr(C)]
 #[derive(Default, Clone)]
 pub struct termios {

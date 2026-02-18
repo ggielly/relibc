@@ -23,10 +23,6 @@ pub mod sys;
 #[path = "redox.rs"]
 pub mod sys;
 
-#[cfg(target_os = "cascade")]
-#[path = "cascade.rs"]
-pub mod sys;
-
 #[cfg(target_os = "strat9")]
 #[path = "strat9.rs"]
 pub mod sys;

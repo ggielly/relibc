@@ -28,10 +28,6 @@ pub(crate) mod sys;
 #[path = "redox/mod.rs"]
 pub(crate) mod sys;
 
-#[cfg(target_os = "cascade")]
-#[path = "cascade/mod.rs"]
-pub(crate) mod sys;
-
 #[cfg(target_os = "strat9")]
 #[macro_use]
 #[path = "strat9/mod.rs"]
@@ -45,10 +41,6 @@ pub mod auxv_defs;
 
 #[cfg(target_os = "redox")]
 pub use redox_rt::auxv_defs;
-// CASCADE-OS-START
-#[cfg(target_os = "cascade")]
-pub use self::sys::auxv_defs;
-// CASCADE-OS-END
 
 #[cfg(target_os = "strat9")]
 pub use self::sys::auxv_defs;

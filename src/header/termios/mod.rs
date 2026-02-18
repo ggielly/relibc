@@ -23,10 +23,6 @@ pub mod sys;
 #[path = "redox.rs"]
 pub mod sys;
 
-#[cfg(target_os = "cascade")]
-#[path = "cascade.rs"]
-pub mod sys;
-
 #[cfg(target_os = "strat9")]
 #[path = "strat9.rs"]
 pub mod sys;
@@ -83,7 +79,7 @@ pub unsafe extern "C" fn tcgetattr(fd: c_int, out: *mut termios) -> c_int {
 }
 
 // Définition pour Strat9-OS
-#[cfg(any(target_os = "cascade", target_os = "strat9"))]
+#[cfg(target_os = "strat9")]
 #[repr(C)]
 #[derive(Default, Clone)]
 pub struct termios {

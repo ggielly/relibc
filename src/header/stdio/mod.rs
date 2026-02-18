@@ -1396,11 +1396,11 @@ pub unsafe extern "C" fn fprintf(
     format: *const c_char,
     mut __valist: ...
 ) -> c_int {
-    #[cfg(target_os = "cascade")]
+    #[cfg(target_os = "strat9")]
     unsafe { 
         __valist.with_copy(|copy| vfprintf(file, format, copy))
     }
-    #[cfg(not(target_os = "cascade"))]
+    #[cfg(not(target_os = "strat9"))]
     unsafe { vfprintf(file, format, __valist.as_va_list()) }
 }
 

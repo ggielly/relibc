@@ -12,8 +12,8 @@ pub mod sys;
 #[path = "linux.rs"]
 pub mod sys;
 
-#[cfg(target_os = "cascade")]
-#[path = "cascade.rs"]
+#[cfg(target_os = "strat9")]
+#[path = "strat9.rs"]
 pub mod sys;
 
 #[cfg(target_os = "strat9")]

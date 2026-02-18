@@ -43,9 +43,6 @@ pub type OsSpecific = ();
 #[cfg(target_os = "redox")]
 pub type OsSpecific = redox_rt::signal::RtSigarea;
 
-#[cfg(target_os = "cascade")]
-pub type OsSpecific = ();
-
 #[cfg(target_os = "strat9")]
 pub type OsSpecific = ();
 

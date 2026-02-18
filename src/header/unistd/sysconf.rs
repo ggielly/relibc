@@ -8,8 +8,8 @@ mod sys;
 #[path = "sysconf/linux.rs"]
 mod sys;
 
-#[cfg(target_os = "cascade")]
-#[path = "sysconf/cascade.rs"]
+#[cfg(target_os = "strat9")]
+#[path = "sysconf/strat9.rs"]
 mod sys;
 
 #[cfg(target_os = "strat9")]

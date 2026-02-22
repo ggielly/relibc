@@ -56,7 +56,6 @@ use crate::{
 
 pub use redox_rt::proc::FdGuard;
 
-mod clone;
 mod epoll;
 mod event;
 mod exec;
@@ -312,7 +311,7 @@ impl Pal for Sys {
         // TODO: Find way to avoid lock.
         let _guard = CLONE_LOCK.write();
 
-        Ok(clone::fork_impl(&redox_rt::proc::ForkArgs::Managed)? as pid_t)
+        Ok(redox_rt::proc::fork_impl(&redox_rt::proc::ForkArgs::Managed)? as pid_t)
     }
 
     fn fstat(fildes: c_int, mut buf: Out<stat>) -> Result<()> {
@@ -956,7 +955,7 @@ impl Pal for Sys {
         os_specific: &mut OsSpecific,
     ) -> Result<crate::pthread::OsTid> {
         let _guard = CLONE_LOCK.read();
-        let res = unsafe { clone::rlct_clone_impl(stack, os_specific) };
+        let res = unsafe { redox_rt::thread::rlct_clone_impl(stack, os_specific) };
 
         res.map(|thread_fd| crate::pthread::OsTid { thread_fd })
             .map_err(|error| Errno(error.errno))

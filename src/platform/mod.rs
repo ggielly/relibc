@@ -28,10 +28,12 @@ pub(crate) mod sys;
 #[path = "redox/mod.rs"]
 pub(crate) mod sys;
 
+// STRAT9-OS-START
 #[cfg(target_os = "strat9")]
 #[macro_use]
 #[path = "strat9/mod.rs"]
 pub(crate) mod sys;
+// STRAT9-OS-END
 
 pub use self::rlb::{Line, RawLineBuffer};
 pub mod rlb;
@@ -42,8 +44,10 @@ pub mod auxv_defs;
 #[cfg(target_os = "redox")]
 pub use redox_rt::auxv_defs;
 
+// STRAT9-OS-START
 #[cfg(target_os = "strat9")]
 pub use self::sys::auxv_defs;
+// STRAT9-OS-END
 
 use self::types::*;
 pub mod types;

@@ -29,6 +29,22 @@ const MICROSECONDS_PER_MILLISECOND: usize = 1_000;
 const SYS_TIME_TICKS: usize = 500;
 const SYS_NANOSLEEP: usize = 501;
 
+// syscall numbers (process/thread)
+const SYS_PROC_FORK: usize = 302;
+const SYS_PROC_WAITPID: usize = 310;
+const SYS_PROC_YIELD: usize = 301;
+const SYS_GETPID: usize = 311;
+const SYS_GETTID: usize = 312;
+const SYS_GETPPID: usize = 313;
+const SYS_SETPGID: usize = 317;
+const SYS_GETPGID: usize = 318;
+const SYS_SETSID: usize = 319;
+const SYS_GETSID: usize = 332;
+
+// syscall numbers (futex)
+const SYS_FUTEX_WAIT: usize = 303;
+const SYS_FUTEX_WAKE: usize = 304;
+
 pub struct Sys;
 
 impl Pal for Sys {
@@ -181,7 +197,12 @@ impl Pal for Sys {
     }
 
     unsafe fn fork() -> Result<pid_t> {
-        Err(Errno(crate::error::ENOSYS))
+        let ret = unsafe { syscall0(SYS_PROC_FORK) };
+        if (ret as isize) < 0 {
+            Err(Errno(-(ret as i32)))
+        } else {
+            Ok(ret as pid_t)
+        }
     }
 
     fn fpath(_fildes: c_int, _out: &mut [u8]) -> Result<usize> {
@@ -205,7 +226,7 @@ impl Pal for Sys {
         } else {
             0
         };
-        let ret = unsafe { syscall3(302, addr as usize, val as usize, timeout_ns as usize) };
+        let ret = unsafe { syscall3(SYS_FUTEX_WAIT, addr as usize, val as usize, timeout_ns as usize) };
         if (ret as isize) < 0 {
             Err(Errno(-(ret as i32)))
         } else {
@@ -214,7 +235,7 @@ impl Pal for Sys {
     }
 
     unsafe fn futex_wake(addr: *mut u32, num: u32) -> Result<u32> {
-        let ret = unsafe { syscall2(303, addr as usize, num as usize) };
+        let ret = unsafe { syscall2(SYS_FUTEX_WAKE, addr as usize, num as usize) };
         if (ret as isize) < 0 {
             Err(Errno(-(ret as i32)))
         } else {
@@ -262,13 +283,20 @@ impl Pal for Sys {
         4096
     }
     fn getpgid(_pid: pid_t) -> Result<pid_t> {
-        Ok(0)
+        let ret = unsafe { syscall1(SYS_GETPGID, _pid as usize) };
+        if (ret as isize) < 0 {
+            Err(Errno(-(ret as i32)))
+        } else {
+            Ok(ret as pid_t)
+        }
     }
     fn getpid() -> pid_t {
-        1
+        let ret = unsafe { syscall0(SYS_GETPID) };
+        if (ret as isize) < 0 { 0 } else { ret as pid_t }
     }
     fn getppid() -> pid_t {
-        0
+        let ret = unsafe { syscall0(SYS_GETPPID) };
+        if (ret as isize) < 0 { 0 } else { ret as pid_t }
     }
     fn getpriority(_which: c_int, _who: id_t) -> Result<c_int> {
         Ok(0)
@@ -300,10 +328,16 @@ impl Pal for Sys {
         Ok(())
     }
     fn getsid(_pid: pid_t) -> Result<pid_t> {
-        Ok(0)
+        let ret = unsafe { syscall1(SYS_GETSID, _pid as usize) };
+        if (ret as isize) < 0 {
+            Err(Errno(-(ret as i32)))
+        } else {
+            Ok(ret as pid_t)
+        }
     }
     fn gettid() -> pid_t {
-        1
+        let ret = unsafe { syscall0(SYS_GETTID) };
+        if (ret as isize) < 0 { 0 } else { ret as pid_t }
     }
     fn gettimeofday(
         mut tp: Out<timeval>,
@@ -514,7 +548,7 @@ impl Pal for Sys {
 
     fn sched_yield() -> Result<()> {
         unsafe {
-            let _ = syscall0(301);
+            let _ = syscall0(SYS_PROC_YIELD);
         }
         Ok(())
     }
@@ -524,7 +558,12 @@ impl Pal for Sys {
     }
 
     fn setpgid(_pid: pid_t, _pgid: pid_t) -> Result<()> {
-        Ok(())
+        let ret = unsafe { syscall2(SYS_SETPGID, _pid as usize, _pgid as usize) };
+        if (ret as isize) < 0 {
+            Err(Errno(-(ret as i32)))
+        } else {
+            Ok(())
+        }
     }
 
     fn setpriority(_which: c_int, _who: id_t, _prio: c_int) -> Result<()> {
@@ -540,7 +579,12 @@ impl Pal for Sys {
     }
 
     fn setsid() -> Result<c_int> {
-        Ok(0)
+        let ret = unsafe { syscall0(SYS_SETSID) };
+        if (ret as isize) < 0 {
+            Err(Errno(-(ret as i32)))
+        } else {
+            Ok(ret as c_int)
+        }
     }
 
     fn symlink(_path1: CStr, _path2: CStr) -> Result<()> {
@@ -585,7 +629,15 @@ impl Pal for Sys {
     }
 
     fn waitpid(_pid: pid_t, _stat_loc: Option<Out<c_int>>, _options: c_int) -> Result<pid_t> {
-        Err(Errno(crate::error::ENOSYS))
+        let status_ptr =
+            _stat_loc.map_or(core::ptr::null_mut(), |mut out| out.as_mut_ptr()) as usize;
+        let ret =
+            unsafe { syscall3(SYS_PROC_WAITPID, _pid as usize, status_ptr, _options as usize) };
+        if (ret as isize) < 0 {
+            Err(Errno(-(ret as i32)))
+        } else {
+            Ok(ret as pid_t)
+        }
     }
 
     fn write(fildes: c_int, buf: &[u8]) -> Result<usize> {

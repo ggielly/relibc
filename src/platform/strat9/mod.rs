@@ -6,9 +6,10 @@ use crate::{
         sys_resource::{rlimit, rusage},
         sys_stat::stat,
         sys_statvfs::statvfs,
-        sys_time::timeval,
-        sys_utsname::utsname,
+        sys_time::{timeval, timezone},
+        sys_utsname::{UTSLENGTH, utsname},
         time::{itimerspec, timespec},
+        unistd::SEEK_SET,
     },
     out::Out,
     platform::{
@@ -51,6 +52,11 @@ pub const SYS_CLOSE: usize = 406;
 pub const SYS_FCNTL: usize = 407;
 pub const SYS_FSTAT: usize = 408;
 pub const SYS_STAT: usize = 409;
+pub const SYS_PIPE: usize = 431;
+pub const SYS_DUP2: usize = 433;
+pub const SYS_CHDIR: usize = 440;
+pub const SYS_GETCWD: usize = 442;
+pub const SYS_IOCTL: usize = 443;
 pub const SYS_VOLUME_READ: usize = 420;
 pub const SYS_VOLUME_WRITE: usize = 421;
 pub const SYS_VOLUME_INFO: usize = 422;
@@ -78,6 +84,12 @@ const SYS_FUTEX_WAIT: usize = 303;
 const SYS_FUTEX_WAKE: usize = 304;
 
 pub struct Sys;
+
+impl Sys {
+    pub unsafe fn ioctl(fd: c_int, request: c_ulong, out: *mut c_void) -> Result<c_int> {
+        Ok(e_raw(unsafe { strat9_syscall!(SYS_IOCTL, fd as u64, request as u64, out as u64) })? as c_int)
+    }
+}
 
 impl Pal for Sys {
     fn access(path: CStr, _mode: c_int) -> Result<()> {
@@ -107,8 +119,9 @@ impl Pal for Sys {
         }
     }
 
-    fn chdir(_path: CStr) -> Result<()> {
-        Err(Errno(crate::error::ENOSYS))
+    fn chdir(path: CStr) -> Result<()> {
+        e_raw(unsafe { strat9_syscall!(SYS_CHDIR, path.as_ptr() as u64, path.to_bytes().len() as u64) })?;
+        Ok(())
     }
 
     fn chmod(_path: CStr, _mode: mode_t) -> Result<()> {
@@ -152,8 +165,8 @@ impl Pal for Sys {
         }
     }
 
-    fn dup2(_fildes: c_int, _fildes2: c_int) -> Result<c_int> {
-        Err(Errno(crate::error::ENOSYS))
+    fn dup2(fildes: c_int, fildes2: c_int) -> Result<c_int> {
+        e_raw(unsafe { strat9_syscall!(SYS_DUP2, fildes as u64, fildes2 as u64) }).map(|r| r as c_int)
     }
 
     unsafe fn execve(
@@ -341,8 +354,15 @@ impl Pal for Sys {
         Err(Errno(crate::error::ENOSYS))
     }
 
-    fn getcwd(_buf: Out<[u8]>) -> Result<()> {
-        Err(Errno(crate::error::ENOSYS))
+    fn getcwd(mut buf: Out<[u8]>) -> Result<()> {
+        e_raw(unsafe {
+            strat9_syscall!(
+                SYS_GETCWD,
+                buf.as_mut_ptr().as_mut_ptr() as u64,
+                buf.as_mut_ptr().len() as u64
+            )
+        })?;
+        Ok(())
     }
 
     fn getdents(_fildes: c_int, _buf: &mut [u8], _opaque_offset: u64) -> Result<usize> {
@@ -596,8 +616,12 @@ impl Pal for Sys {
         }
     }
 
-    fn pipe2(_fildes: Out<[c_int; 2]>, _flags: c_int) -> Result<()> {
-        Err(Errno(crate::error::ENOSYS))
+    fn pipe2(mut fildes: Out<[c_int; 2]>, flags: c_int) -> Result<()> {
+        if flags != 0 {
+            return Err(Errno(EINVAL));
+        }
+        e_raw(unsafe { strat9_syscall!(SYS_PIPE, fildes.as_mut_ptr().as_mut_ptr() as u64) })?;
+        Ok(())
     }
 
     fn posix_fallocate(_fd: c_int, _offset: u64, _length: core::num::NonZeroU64) -> Result<()> {
@@ -741,7 +765,34 @@ impl Pal for Sys {
     }
 
     fn uname(_utsname: Out<utsname>) -> Result<()> {
-        Err(Errno(crate::error::ENOSYS))
+        fn fill(dst: &mut [c_char; UTSLENGTH], src: &[u8]) {
+            let n = core::cmp::min(src.len(), UTSLENGTH - 1);
+            let mut i = 0;
+            while i < n {
+                dst[i] = src[i] as c_char;
+                i += 1;
+            }
+            dst[n] = 0;
+        }
+
+        let mut u = utsname {
+            sysname: [0; UTSLENGTH],
+            nodename: [0; UTSLENGTH],
+            release: [0; UTSLENGTH],
+            version: [0; UTSLENGTH],
+            machine: [0; UTSLENGTH],
+            domainname: [0; UTSLENGTH],
+        };
+        fill(&mut u.sysname, b"Strat9");
+        fill(&mut u.nodename, b"localhost");
+        fill(&mut u.release, b"0.1.0");
+        fill(&mut u.version, b"Strat9-OS");
+        fill(&mut u.machine, b"x86_64");
+        fill(&mut u.domainname, b"localdomain");
+
+        let mut uts = _utsname;
+        uts.write(u);
+        Ok(())
     }
 
     fn unlink(_path: CStr) -> Result<()> {

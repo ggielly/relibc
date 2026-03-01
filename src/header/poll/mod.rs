@@ -2,7 +2,9 @@
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/poll.h.html>.
 
-use core::{mem, ptr, slice};
+use core::mem;
+#[cfg(not(target_os = "strat9"))]
+use core::{ptr, slice};
 
 use crate::{
     fs::File,
@@ -34,6 +36,8 @@ pub const POLLWRNORM: c_short = 0x100;
 pub const POLLWRBAND: c_short = 0x200;
 
 pub type nfds_t = c_ulong;
+#[cfg(target_os = "strat9")]
+const SYS_POLL: u64 = 460;
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/poll.h.html>.
 #[repr(C)]
@@ -138,16 +142,34 @@ pub unsafe fn poll_epoll(fds: &mut [pollfd], timeout: c_int, sigmask: *const sig
     count
 }
 
+#[cfg(target_os = "strat9")]
+unsafe fn poll_syscall(fds: *mut pollfd, nfds: nfds_t, timeout: c_int) -> c_int {
+    let ret = unsafe { crate::strat9_syscall!(SYS_POLL, fds as u64, nfds as u64, timeout as i64 as u64) };
+    if ret > c_int::MAX as u64 {
+        platform::ERRNO.set((ret as c_int).wrapping_neg());
+        -1
+    } else {
+        ret as c_int
+    }
+}
+
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/poll.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn poll(fds: *mut pollfd, nfds: nfds_t, timeout: c_int) -> c_int {
     trace_expr!(
         unsafe {
-            poll_epoll(
-                slice::from_raw_parts_mut(fds, nfds as usize),
-                timeout,
-                ptr::null_mut(),
-            )
+            #[cfg(target_os = "strat9")]
+            {
+                poll_syscall(fds, nfds, timeout)
+            }
+            #[cfg(not(target_os = "strat9"))]
+            {
+                poll_epoll(
+                    slice::from_raw_parts_mut(fds, nfds as usize),
+                    timeout,
+                    ptr::null_mut(),
+                )
+            }
         },
         "poll({:p}, {}, {})",
         fds,
@@ -176,11 +198,19 @@ pub unsafe extern "C" fn ppoll(
     };
     trace_expr!(
         unsafe {
-            poll_epoll(
-                slice::from_raw_parts_mut(fds, nfds as usize),
-                timeout,
-                sigmask,
-            )
+            #[cfg(target_os = "strat9")]
+            {
+                let _ = sigmask;
+                poll_syscall(fds, nfds, timeout)
+            }
+            #[cfg(not(target_os = "strat9"))]
+            {
+                poll_epoll(
+                    slice::from_raw_parts_mut(fds, nfds as usize),
+                    timeout,
+                    sigmask,
+                )
+            }
         },
         "ppoll({:p}, {}, {:p}, {:p})",
         fds,

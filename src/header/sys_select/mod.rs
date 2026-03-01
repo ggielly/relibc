@@ -2,6 +2,8 @@
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_select.h.html>.
 
+#[cfg(target_os = "strat9")]
+use alloc::vec::Vec;
 use core::mem;
 
 use cbitset::BitSet;
@@ -20,6 +22,8 @@ use crate::{
         types::{c_int, suseconds_t, time_t},
     },
 };
+#[cfg(target_os = "strat9")]
+use crate::header::poll::{POLLERR, POLLHUP, POLLIN, POLLNVAL, POLLOUT, POLLPRI, nfds_t, poll, pollfd};
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_select.h.html>.
 ///
@@ -176,6 +180,112 @@ pub fn select_epoll(
     count
 }
 
+#[cfg(target_os = "strat9")]
+fn select_poll(
+    nfds: c_int,
+    mut readfds: Option<&mut fd_set>,
+    mut writefds: Option<&mut fd_set>,
+    mut exceptfds: Option<&mut fd_set>,
+    timeout: Option<&mut timeval>,
+) -> c_int {
+    if nfds < 0 || nfds > FD_SETSIZE as i32 {
+        platform::ERRNO.set(errno::EINVAL);
+        return -1;
+    }
+
+    let timeout_ms = if let Some(tmo) = timeout {
+        if tmo.tv_sec > (c_int::MAX / 1000) as _ {
+            c_int::MAX
+        } else {
+            ((tmo.tv_sec as c_int) * 1000) + ((tmo.tv_usec as c_int) / 1000)
+        }
+    } else {
+        -1
+    };
+
+    let mut fds: Vec<pollfd> = Vec::new();
+    for fd in 0..nfds {
+        let mut events: i16 = 0;
+        if let Some(set) = readfds.as_ref() {
+            if set.fds_bits.contains(fd as usize) {
+                events |= POLLIN;
+            }
+        }
+        if let Some(set) = writefds.as_ref() {
+            if set.fds_bits.contains(fd as usize) {
+                events |= POLLOUT;
+            }
+        }
+        if let Some(set) = exceptfds.as_ref() {
+            if set.fds_bits.contains(fd as usize) {
+                events |= POLLPRI;
+            }
+        }
+        if events != 0 {
+            fds.push(pollfd {
+                fd,
+                events,
+                revents: 0,
+            });
+        }
+    }
+
+    let res = unsafe { poll(fds.as_mut_ptr(), fds.len() as nfds_t, timeout_ms) };
+    if res < 0 {
+        return -1;
+    }
+
+    if let Some(set) = readfds.as_mut() {
+        for fd in 0..nfds {
+            set.fds_bits.remove(fd as usize);
+        }
+    }
+    if let Some(set) = writefds.as_mut() {
+        for fd in 0..nfds {
+            set.fds_bits.remove(fd as usize);
+        }
+    }
+    if let Some(set) = exceptfds.as_mut() {
+        for fd in 0..nfds {
+            set.fds_bits.remove(fd as usize);
+        }
+    }
+
+    let mut count = 0;
+    for pfd in fds.iter() {
+        if (pfd.revents & POLLNVAL) != 0 {
+            platform::ERRNO.set(errno::EBADF);
+            return -1;
+        }
+
+        let mut ready = false;
+        if (pfd.revents & (POLLIN | POLLHUP)) != 0 {
+            if let Some(set) = readfds.as_mut() {
+                set.fds_bits.insert(pfd.fd as usize);
+            }
+            ready = true;
+        }
+        if (pfd.revents & POLLOUT) != 0 {
+            if let Some(set) = writefds.as_mut() {
+                set.fds_bits.insert(pfd.fd as usize);
+            }
+            ready = true;
+        }
+        if (pfd.revents & (POLLPRI | POLLERR)) != 0 {
+            if let Some(set) = exceptfds.as_mut() {
+                set.fds_bits.insert(pfd.fd as usize);
+            }
+            ready = true;
+        }
+
+        if ready {
+            count += 1;
+        }
+    }
+
+    count
+}
+
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/pselect.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn select(
@@ -186,29 +296,60 @@ pub unsafe extern "C" fn select(
     timeout: *mut timeval,
 ) -> c_int {
     trace_expr!(
-        select_epoll(
-            nfds,
-            if readfds.is_null() {
-                None
-            } else {
-                Some(unsafe { &mut *readfds })
-            },
-            if writefds.is_null() {
-                None
-            } else {
-                Some(unsafe { &mut *writefds })
-            },
-            if exceptfds.is_null() {
-                None
-            } else {
-                Some(unsafe { &mut *exceptfds })
-            },
-            if timeout.is_null() {
-                None
-            } else {
-                Some(unsafe { &mut *timeout })
+        {
+            #[cfg(target_os = "strat9")]
+            {
+                select_poll(
+                    nfds,
+                    if readfds.is_null() {
+                        None
+                    } else {
+                        Some(unsafe { &mut *readfds })
+                    },
+                    if writefds.is_null() {
+                        None
+                    } else {
+                        Some(unsafe { &mut *writefds })
+                    },
+                    if exceptfds.is_null() {
+                        None
+                    } else {
+                        Some(unsafe { &mut *exceptfds })
+                    },
+                    if timeout.is_null() {
+                        None
+                    } else {
+                        Some(unsafe { &mut *timeout })
+                    }
+                )
             }
-        ),
+            #[cfg(not(target_os = "strat9"))]
+            {
+                select_epoll(
+                    nfds,
+                    if readfds.is_null() {
+                        None
+                    } else {
+                        Some(unsafe { &mut *readfds })
+                    },
+                    if writefds.is_null() {
+                        None
+                    } else {
+                        Some(unsafe { &mut *writefds })
+                    },
+                    if exceptfds.is_null() {
+                        None
+                    } else {
+                        Some(unsafe { &mut *exceptfds })
+                    },
+                    if timeout.is_null() {
+                        None
+                    } else {
+                        Some(unsafe { &mut *timeout })
+                    }
+                )
+            }
+        },
         "select({}, {:p}, {:p}, {:p}, {:p})",
         nfds,
         readfds,

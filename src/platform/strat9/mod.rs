@@ -24,6 +24,38 @@ pub mod auxv_defs;
 const NANOSECONDS_PER_SECOND: usize = 1_000_000_000;
 const MILLISECONDS_PER_SECOND: usize = 1_000;
 const MICROSECONDS_PER_MILLISECOND: usize = 1_000;
+// Strat9 syscall numbers (from docs/NATIVE_SYSCALLS.md)
+pub const SYS_NULL: usize = 0;
+pub const SYS_HANDLE_DUPLICATE: usize = 1;
+pub const SYS_HANDLE_CLOSE: usize = 2;
+pub const SYS_MEM_MAP: usize = 100;
+pub const SYS_MEM_UNMAP: usize = 101;
+pub const SYS_IPC_CREATE_PORT: usize = 200;
+pub const SYS_IPC_SEND: usize = 201;
+pub const SYS_IPC_RECV: usize = 202;
+pub const SYS_IPC_CALL: usize = 203;
+pub const SYS_IPC_REPLY: usize = 204;
+pub const SYS_PROC_EXIT: usize = 300;
+pub const SYS_PROC_YIELD: usize = 301;
+pub const SYS_PROC_WAITPID: usize = 310;
+pub const SYS_FUTEX_WAIT: usize = 302;
+pub const SYS_FUTEX_WAKE: usize = 303;
+pub const SYS_GETPID: usize = 311;
+pub const SYS_GETTID: usize = 312;
+pub const SYS_KILL: usize = 320;
+pub const SYS_SIGPROCMASK: usize = 321;
+pub const SYS_OPEN: usize = 403;
+pub const SYS_WRITE: usize = 404;
+pub const SYS_READ: usize = 405;
+pub const SYS_CLOSE: usize = 406;
+pub const SYS_FCNTL: usize = 407;
+pub const SYS_FSTAT: usize = 408;
+pub const SYS_STAT: usize = 409;
+pub const SYS_VOLUME_READ: usize = 420;
+pub const SYS_VOLUME_WRITE: usize = 421;
+pub const SYS_VOLUME_INFO: usize = 422;
+pub const SYS_CLOCK_GETTIME: usize = 500;
+pub const SYS_DEBUG_LOG: usize = 600;
 
 // syscall numbers (time-related)
 const SYS_TIME_TICKS: usize = 500;
@@ -168,6 +200,64 @@ impl Pal for Sys {
     }
 
     fn fdatasync(_fildes: c_int) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn flock(_fd: c_int, _operation: c_int) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn fstat(fildes: c_int, mut buf: Out<stat>) -> Result<()> {
+        e_raw(unsafe { strat9_syscall!(SYS_FSTAT, fildes as u64, buf.as_mut_ptr() as u64) })?;
+        Ok(())
+    }
+
+    fn fstatat(_fildes: c_int, _path: Option<CStr>, _buf: Out<stat>, _flags: c_int) -> Result<()> {
+        if _fildes != AT_FDCWD || _flags != 0 {
+            return Err(Errno(EINVAL));
+        }
+        let path = _path.ok_or(Errno(EINVAL))?;
+        let mut buf = _buf;
+        e_raw(unsafe {
+            strat9_syscall!(
+                SYS_STAT,
+                path.as_ptr() as u64,
+                path.to_bytes().len() as u64,
+                buf.as_mut_ptr() as u64
+            )
+        })?;
+        Ok(())
+    }
+
+    fn fstatvfs(_fildes: c_int, _buf: Out<statvfs>) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn fcntl(fildes: c_int, cmd: c_int, arg: c_ulonglong) -> Result<c_int> {
+        e_raw(unsafe { strat9_syscall!(SYS_FCNTL, fildes as u64, cmd as u64, arg) }).map(|r| r as c_int)
+    }
+
+    unsafe fn fork() -> Result<pid_t> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn fpath(_fildes: c_int, _out: &mut [u8]) -> Result<usize> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn fsync(_fildes: c_int) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn ftruncate(_fildes: c_int, _length: off_t) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    unsafe fn futex_wait(addr: *mut u32, val: u32, deadline: Option<&timespec>) -> Result<()> {
+        let deadline_ns = deadline.map_or(0u64, |d| {
+            (d.tv_sec as u64) * 1_000_000_000 + (d.tv_nsec as u64)
+        });
+        e_raw(unsafe { strat9_syscall!(SYS_FUTEX_WAIT, addr as u64, val as u64, deadline_ns) })?;
         Ok(())
     }
 
@@ -291,8 +381,9 @@ impl Pal for Sys {
         }
     }
     fn getpid() -> pid_t {
-        let ret = unsafe { syscall0(SYS_GETPID) };
-        if (ret as isize) < 0 { 0 } else { ret as pid_t }
+        e_raw(unsafe { strat9_syscall!(SYS_GETPID) })
+            .map(|r| r as pid_t)
+            .unwrap_or(0)
     }
     fn getppid() -> pid_t {
         let ret = unsafe { syscall0(SYS_GETPPID) };
@@ -316,6 +407,35 @@ impl Pal for Sys {
         _euid: Option<Out<uid_t>>,
         _suid: Option<Out<uid_t>>,
     ) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn getrlimit(_resource: c_int, _rlim: Out<rlimit>) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    unsafe fn setrlimit(_resource: c_int, _rlim: *const rlimit) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn getrusage(_who: c_int, _r_usage: Out<rusage>) -> Result<()> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn getsid(_pid: pid_t) -> Result<pid_t> {
+        Err(Errno(ENOSYS))
+    }
+
+    fn gettid() -> pid_t {
+        e_raw(unsafe { strat9_syscall!(SYS_GETTID) })
+            .map(|r| r as pid_t)
+            .unwrap_or(0)
+    }
+
+    fn gettimeofday(mut tp: Out<timeval>, _tzp: Option<Out<timezone>>) -> Result<()> {
+        let ticks = unsafe { strat9_syscall!(SYS_CLOCK_GETTIME) };
+        tp.tv_sec = (ticks / 1000) as i64;
+        tp.tv_usec = ((ticks % 1000) * 1000) as i64;
         Ok(())
     }
     fn getrlimit(_resource: c_int, _rlim: Out<rlimit>) -> Result<()> {
@@ -627,17 +747,17 @@ impl Pal for Sys {
     fn unlink(_path: CStr) -> Result<()> {
         Err(Errno(crate::error::ENOSYS))
     }
+    fn waitpid(pid: pid_t, stat_loc: Option<Out<c_int>>, options: c_int) -> Result<pid_t> {
 
-    fn waitpid(_pid: pid_t, _stat_loc: Option<Out<c_int>>, _options: c_int) -> Result<pid_t> {
-        let status_ptr =
-            _stat_loc.map_or(core::ptr::null_mut(), |mut out| out.as_mut_ptr()) as usize;
-        let ret =
-            unsafe { syscall3(SYS_PROC_WAITPID, _pid as usize, status_ptr, _options as usize) };
-        if (ret as isize) < 0 {
-            Err(Errno(-(ret as i32)))
-        } else {
-            Ok(ret as pid_t)
-        }
+        e_raw(unsafe {
+            strat9_syscall!(
+                SYS_PROC_WAITPID,
+                pid as u64,
+                stat_loc.map_or(0, |mut o| o.as_mut_ptr() as usize) as u64,
+                options as u64
+            )
+        })
+        .map(|p| p as pid_t)
     }
 
     fn write(fildes: c_int, buf: &[u8]) -> Result<usize> {

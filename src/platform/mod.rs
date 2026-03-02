@@ -96,7 +96,7 @@ pub trait WriteByte: fmt::Write {
     fn write_u8(&mut self, byte: u8) -> fmt::Result;
 }
 
-impl<'a, W: WriteByte> WriteByte for &'a mut W {
+impl<W: WriteByte> WriteByte for &mut W {
     fn write_u8(&mut self, byte: u8) -> fmt::Result {
         (**self).write_u8(byte)
     }
@@ -275,7 +275,7 @@ impl<T: Write> Write for CountingWriter<T> {
         res
     }
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        match self.inner.write_all(&buf) {
+        match self.inner.write_all(buf) {
             Ok(()) => (),
             Err(ref err) if err.kind() == io::ErrorKind::WriteZero => (),
             Err(err) => return Err(err),
@@ -364,24 +364,33 @@ pub unsafe fn init(auxvs: Box<[[usize; 2]]>) {
 pub unsafe fn init_inner(auxvs: Box<[[usize; 2]]>) {
     use self::auxv_defs::*;
     use crate::header::sys_stat::S_ISVTX;
+    use redox_rt::proc::FdGuard;
     use syscall::MODE_PERM;
 
     // TODO: Is it safe to assume setup_sighandler has been called at this point?
     redox_rt::sys::this_proc_call(
         &mut [],
         syscall::CallFlags::empty(),
-        &[redox_rt::protocol::ProcCall::SyncSigPctl as u64],
+        &[redox_protocols::protocol::ProcCall::SyncSigPctl as u64],
     )
     .expect("failed to sync signal pctl");
 
-    if let (Some(cwd_ptr), Some(cwd_len)) = (
+    if let (Some(cwd_ptr), Some(cwd_len), Some(cwd_fd)) = (
         get_auxv(&auxvs, AT_REDOX_INITIAL_CWD_PTR),
         get_auxv(&auxvs, AT_REDOX_INITIAL_CWD_LEN),
+        get_auxv(&auxvs, AT_REDOX_CWD_FD),
     ) {
         let cwd_bytes: &'static [u8] =
             unsafe { core::slice::from_raw_parts(cwd_ptr as *const u8, cwd_len) };
-        if let Ok(cwd) = core::str::from_utf8(cwd_bytes) {
-            self::sys::path::set_cwd_manual(cwd.into());
+        if let (Ok(cwd_path), Some(cwd_fd)) = (
+            core::str::from_utf8(cwd_bytes),
+            (cwd_fd != usize::MAX).then(|| {
+                FdGuard::new(cwd_fd)
+                    .to_upper()
+                    .expect("failed to move cwd fd to upper table")
+            }),
+        ) {
+            self::sys::path::set_cwd_manual(cwd_path.into(), cwd_fd);
         }
     }
 

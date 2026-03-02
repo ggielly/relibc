@@ -4,13 +4,14 @@ use core::{
     num::NonZeroU64,
     ptr, slice, str,
 };
+use object::bytes_of_slice_mut;
+use redox_protocols::protocol::{WaitFlags, wifstopped};
 use redox_rt::{
     RtTcb,
-    protocol::{WaitFlags, wifstopped},
     sys::{Resugid, WaitpidTarget},
 };
 use syscall::{
-    self, EILSEQ, Error, MODE_PERM,
+    self, EILSEQ, ESRCH, Error, MODE_PERM, StdFsCallKind, StdFsCallMeta,
     data::{Map, TimeSpec as redox_timespec},
     dirent::{DirentHeader, DirentKind},
 };
@@ -27,10 +28,13 @@ use crate::{
     header::{
         bits_time::timespec,
         errno::{
-            EBADF, EBADFD, EBADR, EEXIST, EFAULT, EFBIG, EINTR, EINVAL, EIO, ENAMETOOLONG, ENOENT,
-            ENOMEM, ENOSYS, EOPNOTSUPP, EPERM, ERANGE,
+            EBADF, EBADFD, EEXIST, EFAULT, EFBIG, EINTR, EINVAL, EIO, ENAMETOOLONG, ENOENT, ENOMEM,
+            ENOSYS, EOPNOTSUPP, EPERM,
         },
-        fcntl::{self, AT_EMPTY_PATH, AT_FDCWD, AT_SYMLINK_NOFOLLOW},
+        fcntl::{
+            self, AT_EMPTY_PATH, AT_FDCWD, AT_SYMLINK_NOFOLLOW, F_GETLK, F_OFD_GETLK, F_OFD_SETLK,
+            F_RDLCK, F_SETLK, F_SETLKW, F_UNLCK, F_WRLCK, flock,
+        },
         limits,
         pthread::{pthread_cancel, pthread_create},
         signal::{NSIG, SIGEV_NONE, SIGEV_SIGNAL, SIGEV_THREAD, SIGRTMIN, sigevent},
@@ -261,11 +265,7 @@ impl Pal for Sys {
     }
 
     fn fchdir(fd: c_int) -> Result<()> {
-        let mut buf = [0; 4096];
-        let res = syscall::fpath(fd as usize, &mut buf)?;
-
-        let path = str::from_utf8(&buf[..res]).map_err(|_| Errno(EINVAL))?;
-        path::chdir(path)?;
+        path::fchdir(fd)?;
         Ok(())
     }
 
@@ -293,6 +293,116 @@ impl Pal for Sys {
     }
 
     fn fcntl(fd: c_int, cmd: c_int, args: c_ulonglong) -> Result<c_int> {
+        match cmd {
+            F_SETLK | F_OFD_SETLK => {
+                let is_ofd = cmd == F_OFD_SETLK;
+                let flock = unsafe { &mut *(args as *mut flock) };
+
+                let (start, len) = Self::relative_to_absolute_foffset(
+                    fd as usize,
+                    flock.l_whence,
+                    flock.l_start,
+                    flock.l_len,
+                )?;
+
+                let start = start as u64 | if is_ofd { 1 << 63 } else { 0 };
+                let len = len as u64;
+
+                match flock.l_type as i32 {
+                    F_UNLCK => {
+                        let meta = StdFsCallMeta::new(StdFsCallKind::Unlock, start, len);
+                        syscall::std_fs_call(fd as usize, &mut [], &meta)?;
+                        return Ok(0);
+                    }
+
+                    F_RDLCK | F_WRLCK => {
+                        let meta = StdFsCallMeta::new(
+                            StdFsCallKind::Lock,
+                            start,
+                            len | if flock.l_type as i32 == F_WRLCK {
+                                1 << 63
+                            } else {
+                                0
+                            },
+                        );
+                        syscall::std_fs_call(fd as usize, &mut [], &meta)?;
+                        return Ok(0);
+                    }
+
+                    _ => return Err(Errno(EINVAL)),
+                };
+            }
+
+            F_GETLK | F_OFD_GETLK => {
+                let is_ofd = cmd == F_OFD_GETLK;
+                let flock = unsafe { &mut *(args as *mut flock) };
+
+                if is_ofd && flock.l_pid != 0 {
+                    log::warn!("POSIX requires `l_pid` to be 0 on input for `F_OFD_GETLK`");
+                    return Err(Errno(EINVAL));
+                }
+
+                let (start, len) = Self::relative_to_absolute_foffset(
+                    fd as usize,
+                    flock.l_whence,
+                    flock.l_start,
+                    flock.l_len,
+                )?;
+
+                let mut start = start as u64;
+                if is_ofd {
+                    start |= 1 << 63;
+                }
+
+                let mut len = len as u64;
+                if flock.l_type as i32 == F_WRLCK {
+                    len |= 1 << 63;
+                }
+
+                let meta = StdFsCallMeta::new(StdFsCallKind::GetLock, 0, 0);
+                let payload = &mut [start, len];
+                // `pid` if traditional POSIX otherwise 0
+                let val =
+                    match syscall::std_fs_call(fd as usize, bytes_of_slice_mut(payload), &meta) {
+                        // According to POSIX Issue 8:
+                        // > If no lock is found that would prevent this lock from being created, then
+                        // > the structure shall be left unchanged except for the lock type in `l_type`
+                        // > which shall be set to F_UNLCK.
+                        Err(err) if err.errno == ESRCH => {
+                            flock.l_type = F_UNLCK as i16;
+                            return Ok(0);
+                        }
+
+                        Ok(val) => val,
+                        Err(err) => return Err(Errno(err.errno)),
+                    };
+
+                debug_assert_ne!(payload[0] & (1 << 63), 1 << 63);
+
+                if is_ofd {
+                    flock.l_pid = -1;
+                } else {
+                    flock.l_pid = val as i32;
+                }
+
+                let len = payload[1] & !(1 << 63);
+                if payload[1] & (1 << 63) == (1 << 63) {
+                    flock.l_type = F_WRLCK as i16;
+                } else {
+                    flock.l_type = F_RDLCK as i16;
+                }
+
+                flock.l_whence = SEEK_SET as _;
+                flock.l_start = start as i64;
+                flock.l_len = len as i64;
+                return Ok(0);
+            }
+
+            F_SETLKW => log::warn!("F_SETLKW: not yet implemented"),
+
+            _ => {}
+        }
+
         Ok(syscall::fcntl(fd as usize, cmd as usize, args as usize)? as c_int)
     }
 
@@ -408,7 +518,7 @@ impl Pal for Sys {
     }
 
     fn getcwd(buf: Out<[u8]>) -> Result<()> {
-        path::getcwd(buf).ok_or(Errno(ERANGE))?;
+        path::getcwd(buf)?;
         Ok(())
     }
 
@@ -662,21 +772,13 @@ impl Pal for Sys {
     }
 
     fn mkdirat(dir_fd: c_int, path_name: CStr, mode: mode_t) -> Result<()> {
-        let mut dir_path_buf = [0; 4096];
-        let res = Sys::fpath(dir_fd, &mut dir_path_buf)?;
-
-        let dir_path = str::from_utf8(&dir_path_buf[..res as usize]).map_err(|_| Errno(EBADR))?;
-
-        let resource_path =
-            path::canonicalize_using_cwd(Some(&dir_path), &path_name.to_string_lossy())
-                // Since parent_dir_path is resolved by fpath, it is more likely that
-                // the problem was with path.
-                .ok_or(Errno(ENOENT))?;
-
-        Sys::mkdir(
-            CStr::borrow(&CString::new(resource_path.as_bytes()).unwrap()),
-            mode,
-        )
+        File::createat(
+            dir_fd,
+            path_name,
+            fcntl::O_DIRECTORY | fcntl::O_EXCL | fcntl::O_CLOEXEC,
+            0o777,
+        )?;
+        Ok(())
     }
 
     fn mkdir(path: CStr, mode: mode_t) -> Result<()> {
@@ -689,19 +791,11 @@ impl Pal for Sys {
     }
 
     fn mkfifoat(dir_fd: c_int, path_name: CStr, mode: mode_t) -> Result<()> {
-        let mut dir_path_buf = [0; 4096];
-        let res = Sys::fpath(dir_fd, &mut dir_path_buf)?;
-
-        let dir_path = str::from_utf8(&dir_path_buf[..res as usize]).map_err(|_| Errno(EBADR))?;
-
-        let resource_path =
-            path::canonicalize_using_cwd(Some(&dir_path), &path_name.to_string_lossy())
-                // Since parent_dir_path is resolved by fpath, it is more likely that
-                // the problem was with path.
-                .ok_or(Errno(ENOENT))?;
-        Sys::mkfifo(
-            CStr::borrow(&CString::new(resource_path.as_bytes()).unwrap()),
-            mode,
+        Sys::mknodat(
+            dir_fd,
+            path_name,
+            syscall::MODE_FIFO as mode_t | (mode & 0o777),
+            0,
         )
     }
 
@@ -710,22 +804,8 @@ impl Pal for Sys {
     }
 
     fn mknodat(dir_fd: c_int, path_name: CStr, mode: mode_t, dev: dev_t) -> Result<()> {
-        let mut dir_path_buf = [0; 4096];
-        let res = Sys::fpath(dir_fd, &mut dir_path_buf)?;
-
-        let dir_path = str::from_utf8(&dir_path_buf[..res as usize]).map_err(|_| Errno(EBADR))?;
-
-        let resource_path =
-            path::canonicalize_using_cwd(Some(&dir_path), &path_name.to_string_lossy())
-                // Since parent_dir_path is resolved by fpath, it is more likely that
-                // the problem was with path.
-                .ok_or(Errno(ENOENT))?;
-
-        Sys::mknod(
-            CStr::borrow(&CString::new(resource_path.as_bytes()).unwrap()),
-            mode,
-            dev,
-        )
+        File::createat(dir_fd, path_name, fcntl::O_CREAT | fcntl::O_CLOEXEC, mode)?;
+        Ok(())
     }
 
     fn mknod(path: CStr, mode: mode_t, dev: dev_t) -> Result<(), Errno> {
@@ -789,14 +869,10 @@ impl Pal for Sys {
         let Some(len) = round_up_to_page_size(len) else {
             return Err(Errno(ENOMEM));
         };
-        (unsafe {
-            syscall::mprotect(
-                addr as usize,
-                len,
-                syscall::MapFlags::from_bits((prot as usize) << 16)
-                    .expect("mprotect: invalid bit pattern"),
-            )
-        })?;
+        let Some(prot) = syscall::MapFlags::from_bits((prot as usize) << 16) else {
+            return Err(Errno(EINVAL));
+        };
+        (unsafe { syscall::mprotect(addr as usize, len, prot) })?;
         Ok(())
     }
 
@@ -887,6 +963,21 @@ impl Pal for Sys {
         let effective_mode = mode & !(redox_rt::sys::get_umask() as mode_t);
 
         Ok(libredox::open(path, oflag, effective_mode)? as c_int)
+    }
+
+    fn openat(dirfd: c_int, path: CStr, oflag: c_int, mode: mode_t) -> Result<c_int> {
+        let path = path.to_str().map_err(|_| Errno(EINVAL))?;
+
+        // POSIX states that umask should affect the following:
+        //
+        // open, openat, creat, mkdir, mkdirat,
+        // mkfifo, mkfifoat, mknod, mknodat,
+        // mq_open, and sem_open,
+        //
+        // all of which (the ones that exist thus far) currently call this function.
+        let effective_mode = mode & !(redox_rt::sys::get_umask() as mode_t);
+
+        Ok(libredox::openat(dirfd, path, oflag, effective_mode)? as c_int)
     }
 
     fn pipe2(mut fds: Out<[c_int; 2]>, flags: c_int) -> Result<()> {
@@ -1061,11 +1152,11 @@ impl Pal for Sys {
         }
 
         let new_path = new_path.to_str().map_err(|_| Errno(EINVAL))?;
-        let target = openat2_path(new_dir, new_path, 0)?;
         // Fail if the target exists with RENAME_NOREPLACE.
         if flags & RENAME_NOREPLACE != 0
             && let Ok(fd) =
-                libredox::open(&target, fcntl::O_PATH | fcntl::O_CLOEXEC, 0).map(FdGuard::new)
+                libredox::openat(new_dir, &new_path, fcntl::O_PATH | fcntl::O_CLOEXEC, 0)
+                    .map(FdGuard::new)
         {
             return Err(Errno(EEXIST));
         }
@@ -1074,6 +1165,7 @@ impl Pal for Sys {
         // oflags are the same as Sys::rename above.
         let source = openat2(old_dir, old_path, 0, fcntl::O_NOFOLLOW | fcntl::O_PATH)?;
 
+        let target = openat2_path(new_dir, new_path, 0)?;
         // I'm avoiding Sys::rename to avoid reallocating a CString from a String.
         syscall::frename(*source as usize, target)
             .map(|_| ())
@@ -1492,5 +1584,39 @@ impl Pal for Sys {
 
     unsafe fn exit_thread(stack_base: *mut (), stack_size: usize) -> ! {
         unsafe { redox_rt::thread::exit_this_thread(stack_base, stack_size) }
+    }
+}
+
+impl Sys {
+    fn relative_to_absolute_foffset(
+        fd: usize,
+        whence: c_short,
+        start: off_t,
+        len: off_t,
+    ) -> Result<(off_t, off_t)> {
+        // let file_off = Self::lseek(fd, 0, SEEK_SET)?;
+        match whence as i32 {
+            SEEK_SET => {
+                let (start, len) = if len < 0 {
+                    (start + len, -len)
+                } else {
+                    (start, len)
+                };
+
+                if start < 0 {
+                    return Err(Errno(EINVAL));
+                }
+
+                assert!(len >= 0);
+                Ok((start, len))
+            }
+            // FIXME: andypython: SEEK_CUR, SEEK_END
+            c => {
+                log::warn!(
+                    "Sys::relative_to_absolute_foffset: whence={whence} not yet implemented"
+                );
+                Ok((0, 0))
+            }
+        }
     }
 }

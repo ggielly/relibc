@@ -20,14 +20,16 @@ members = [
 exclude = ["tests", "dlmalloc-rs"]
 
 [workspace.lints.clippy]
+borrow_as_ptr = "deny"
 cast_lossless = "warn" # TODO review occurrences
-cast_ptr_alignment = "warn" # TODO review occurrences
+cast_ptr_alignment = "allow" # TODO review occurrences
 missing_safety_doc = "allow" # TODO review occurrences
 mut_from_ref = "warn" # TODO review occurrences
 precedence = "deny"
 ptr_as_ptr = "warn" # TODO review occurrences
 ptr_cast_constness = "warn" # TODO review occurrences
 ref_as_ptr = "warn" # TODO review occurrences
+upper_case_acronyms = "allow" # TODO review occurrences
 zero_ptr = "warn" # must allow on public constants due to cbindgen issue
 
 [workspace.lints.rust]
@@ -103,14 +105,15 @@ features = ["elf", "read_core"]
 sc = "0.2.7"
 
 [target.'cfg(target_os = "redox")'.dependencies]
-redox_syscall = "0.7"
+redox_syscall = "0.7.3"
 redox-rt = { path = "redox-rt" }
 redox-path = "0.3"
-redox_event = { version = "0.4.3", default-features = false, features = [
+redox_event = { version = "0.4.6", default-features = false, features = [
     "redox_syscall",
 ] }
 ioslice = { version = "0.6", default-features = false }
 redox-ioctl = { path = "redox-ioctl" }
+redox_protocols = { package = "libredox", version = "0.1.14", default-features = false, features = ["protocol"] }
 
 [features]
 # to enable trace level, take out this `no_trace`

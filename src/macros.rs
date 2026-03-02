@@ -134,7 +134,7 @@ macro_rules! strto_impl {
                 // "stores the address of the first invalid character in *endptr"
                 // so obviously it doesn't want us to clone it.
                 unsafe {
-                    *$endptr = $s.offset(idx) as *mut _;
+                    *$endptr = $s.offset(idx).cast_mut();
                 }
             }
         };
@@ -145,7 +145,7 @@ macro_rules! strto_impl {
         };
 
         // only valid bases are 2 through 36
-        if $base != 0 && ($base < 2 || $base > 36) {
+        if $base != 0 && !(2..=36).contains(&$base) {
             invalid_input();
             return 0;
         }
@@ -153,7 +153,7 @@ macro_rules! strto_impl {
         let mut idx = 0;
 
         // skip any whitespace at the beginning of the string
-        while ctype::isspace(unsafe { *$s.offset(idx) } as c_int) != 0 {
+        while ctype::isspace(c_int::from(unsafe { *$s.offset(idx) })) != 0 {
             idx += 1;
         }
 
@@ -227,7 +227,7 @@ macro_rules! strto_float_impl {
         let mut s = $s;
         let endptr = $endptr;
 
-        while ctype::isspace(unsafe{*s} as c_int) != 0 {
+        while ctype::isspace(c_int::from(unsafe{*s})) != 0 {
             s = unsafe{ s.offset(1)};
         }
 
@@ -335,7 +335,7 @@ macro_rules! strto_float_impl {
             // const input but mut output, yet the man page says
             // "stores the address of the first invalid character in *endptr"
             // so obviously it doesn't want us to clone it.
-            unsafe{*endptr = s as *mut _};
+            unsafe{*endptr = s.cast_mut()};
         }
 
         if let Some(exponent) = exponent {

@@ -87,10 +87,12 @@ pub unsafe fn deactivate_tcb(open_via_dup: &FdGuardUpper) -> Result<()> {
     Ok(())
 }
 
+/// Implements fork impl.
 unsafe extern "C" fn fork_impl(args: &ForkArgs, initial_rsp: *mut usize) -> usize {
     Error::mux(fork_inner(initial_rsp, args))
 }
 
+/// Implements child hook.
 unsafe extern "C" fn child_hook(scratchpad: &ForkScratchpad) {
     //let _ = syscall::write(1, alloc::format!("CUR{cur_filetable_fd}PROC{new_proc_fd}THR{new_thr_fd}\n").as_bytes());
     let _ = syscall::close(scratchpad.cur_filetable_fd);
@@ -442,6 +444,7 @@ asmfunction!(__relibc_internal_rlct_clone_ret: ["
     ret
 "] <= []);
 
+/// Implements current sp.
 pub fn current_sp() -> usize {
     let sp: usize;
     unsafe {
@@ -450,6 +453,10 @@ pub fn current_sp() -> usize {
     sp
 }
 
+/// Implements manually enter trampoline.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn manually_enter_trampoline() {
     let ctl = unsafe { &Tcb::current().unwrap().os_specific.control };
 
@@ -469,6 +476,10 @@ pub unsafe fn manually_enter_trampoline() {
     }
 }
 
+/// Implements arch pre.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn arch_pre(stack: &mut SigStack, os: &mut SigArea) -> PosixStackt {
     PosixStackt {
         sp: core::ptr::null_mut(), // TODO
@@ -476,6 +487,7 @@ pub unsafe fn arch_pre(stack: &mut SigStack, os: &mut SigArea) -> PosixStackt {
         flags: 0,                  // TODO
     }
 }
+/// Implements arch ret to sig.
 pub fn arch_ret_to_sig(stack: &mut SigStack, control: &Sigcontrol) {
     let orig_pc = core::mem::replace(&mut stack.regs.pc, __relibc_internal_sigentry as usize);
     control.saved_ip.set(orig_pc);

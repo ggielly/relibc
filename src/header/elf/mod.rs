@@ -964,6 +964,7 @@ pub const R_X86_64_RELATIVE64: usize = 38;
 pub const R_X86_64_NUM: usize = 39;
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen export elf.
 pub extern "C" fn _cbindgen_export_elf(
     a: Elf32_Ehdr,
     b: Elf64_Ehdr,

@@ -32,6 +32,7 @@ const RECURSIVE_COUNT_MAX_INCLUSIVE: u32 = u32::MAX;
 const SPIN_COUNT: usize = 0;
 
 impl RlctMutex {
+    /// Creates a new instance.
     pub(crate) fn new(attr: &RlctMutexAttr) -> Result<Self, Errno> {
         let RlctMutexAttr {
             prioceiling,
@@ -60,18 +61,22 @@ impl RlctMutex {
             },
         })
     }
+    /// Implements prioceiling.
     pub fn prioceiling(&self) -> Result<c_int, Errno> {
         todo_skip!(0, "pthread_getprioceiling: not implemented");
         Ok(0)
     }
+    /// Implements replace prioceiling.
     pub fn replace_prioceiling(&self, _: c_int) -> Result<c_int, Errno> {
         todo_skip!(0, "pthread_setprioceiling: not implemented");
         Ok(0)
     }
+    /// Implements make consistent.
     pub fn make_consistent(&self) -> Result<(), Errno> {
         todo_skip!(0, "pthread robust mutexes: not implemented");
         Ok(())
     }
+    /// Implements lock inner.
     fn lock_inner(&self, deadline: Option<&timespec>) -> Result<(), Errno> {
         let this_thread = os_tid_invalid_after_fork();
 
@@ -134,12 +139,15 @@ impl RlctMutex {
             }
         }
     }
+    /// Implements lock.
     pub fn lock(&self) -> Result<(), Errno> {
         self.lock_inner(None)
     }
+    /// Implements lock with timeout.
     pub fn lock_with_timeout(&self, deadline: &timespec) -> Result<(), Errno> {
         self.lock_inner(Some(deadline))
     }
+    /// Implements increment recursive count.
     fn increment_recursive_count(&self) -> Result<(), Errno> {
         // We don't have to worry about asynchronous signals here, since pthread_mutex_trylock
         // is not async-signal-safe.
@@ -158,6 +166,7 @@ impl RlctMutex {
 
         Ok(())
     }
+    /// Implements try lock.
     pub fn try_lock(&self) -> Result<(), Errno> {
         let this_thread = os_tid_invalid_after_fork();
 
@@ -189,6 +198,7 @@ impl RlctMutex {
         }
     }
     // Safe because we are not protecting any data.
+    /// Implements unlock.
     pub fn unlock(&self) -> Result<(), Errno> {
         if self.robust || matches!(self.ty, Ty::Recursive | Ty::Errck) {
             if self.inner.load(Ordering::Relaxed) & INDEX_MASK != os_tid_invalid_after_fork() {
@@ -238,6 +248,7 @@ enum Ty {
 static CACHED_OS_TID_INVALID_AFTER_FORK: Cell<u32> = Cell::new(0);
 
 // Assumes TIDs are unique between processes, which I only know is true for Redox.
+/// Implements os tid invalid after fork.
 fn os_tid_invalid_after_fork() -> u32 {
     // TODO: Coordinate better if using shared == PTHREAD_PROCESS_SHARED, with up to 2^32 separate
     // threads within possibly distinct processes, using the mutex. OS thread IDs on Redox are

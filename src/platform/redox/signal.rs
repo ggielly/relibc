@@ -22,6 +22,7 @@ use redox_rt::signal::{
 
 const _: () = {
     #[track_caller]
+    /// Implements assert eq.
     const fn assert_eq(a: usize, b: usize) {
         if a != b {
             panic!("compile-time struct verification failed");
@@ -43,6 +44,7 @@ const _: () = {
 };
 
 impl PalSignal for Sys {
+    /// Returns getitimer.
     fn getitimer(which: c_int, out: &mut itimerval) -> Result<()> {
         let path = match which {
             ITIMER_REAL => "/scheme/itimer/1",
@@ -61,10 +63,12 @@ impl PalSignal for Sys {
         Ok(())
     }
 
+    /// Implements kill.
     fn kill(pid: pid_t, sig: c_int) -> Result<()> {
         redox_rt::sys::posix_kill(ProcKillTarget::from_raw(pid as usize), sig as usize)?;
         Ok(())
     }
+    /// Implements sigqueue.
     fn sigqueue(pid: pid_t, sig: c_int, val: sigval) -> Result<()> {
         Ok(redox_rt::sys::posix_sigqueue(
             pid as usize,
@@ -73,6 +77,7 @@ impl PalSignal for Sys {
         )?)
     }
 
+    /// Implements killpg.
     fn killpg(pgrp: pid_t, sig: c_int) -> Result<()> {
         if pgrp == 1 {
             return Err(Errno(EINVAL));
@@ -80,11 +85,13 @@ impl PalSignal for Sys {
         Self::kill(-pgrp, sig)
     }
 
+    /// Implements raise.
     fn raise(sig: c_int) -> Result<()> {
         // TODO: Bypass kernel?
         unsafe { Self::rlct_kill(Self::current_os_tid(), sig as _) }
     }
 
+    /// Sets setitimer.
     fn setitimer(which: c_int, _new: &itimerval, old: Option<&mut itimerval>) -> Result<()> {
         // TODO: setitimer is no longer part of POSIX and should not be implemented in Redox
         // Change the platform-independent implementation to use POSIX timers.
@@ -93,6 +100,7 @@ impl PalSignal for Sys {
         Err(Errno(ENOSYS))
     }
 
+    /// Implements sigaction.
     fn sigaction(
         sig: c_int,
         c_act: Option<&sigaction>,
@@ -160,6 +168,10 @@ impl PalSignal for Sys {
         Ok(())
     }
 
+    /// Implements sigaltstack.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn sigaltstack(
         new_c: Option<&stack_t>,
         old_c: Option<&mut stack_t>,
@@ -197,11 +209,13 @@ impl PalSignal for Sys {
         Ok(())
     }
 
+    /// Implements sigpending.
     fn sigpending(set: &mut sigset_t) -> Result<(), Errno> {
         *set = redox_rt::signal::currently_pending_blocked();
         Ok(())
     }
 
+    /// Implements sigprocmask.
     fn sigprocmask(
         how: c_int,
         set: Option<&sigset_t>,
@@ -222,6 +236,7 @@ impl PalSignal for Sys {
         Ok(())
     }
 
+    /// Implements sigsuspend.
     fn sigsuspend(mask: &sigset_t) -> Errno {
         match redox_rt::signal::await_signal_async(!*mask) {
             Ok(_) => unreachable!(),
@@ -229,6 +244,7 @@ impl PalSignal for Sys {
         }
     }
 
+    /// Implements sigtimedwait.
     fn sigtimedwait(
         set: &sigset_t,
         info_out: Option<&mut siginfo_t>,

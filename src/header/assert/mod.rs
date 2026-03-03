@@ -8,6 +8,7 @@ use crate::{
 };
 
 #[unsafe(no_mangle)]
+/// Implements assert fail.
 pub unsafe extern "C" fn __assert_fail(
     func: *const c_char,
     file: *const c_char,

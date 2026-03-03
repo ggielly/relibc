@@ -66,6 +66,7 @@ pub struct Error {
 
 // TODO?
 impl Error {
+    /// Implements raw os error.
     pub fn raw_os_error(&self) -> Option<c_int> {
         if let Repr::Os(os) = self.repr {
             Some(os)
@@ -76,12 +77,14 @@ impl Error {
 }
 
 impl fmt::Debug for Error {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&self.repr, f)
     }
 }
 
 impl fmt::Display for Error {
+    /// Implements fmt.
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self.repr {
             Repr::Os(code) => {
@@ -119,6 +122,7 @@ impl Error {
         Self::_new(kind, error.into())
     }
 
+    /// Implements new.
     fn _new(kind: ErrorKind, error: String) -> Error {
         Error {
             repr: Repr::Custom(Box::new(Custom { kind, error })),
@@ -182,6 +186,7 @@ impl Error {
         }
     }
 
+    /// Implements last os error.
     pub fn last_os_error() -> Error {
         let errno = crate::platform::ERRNO.get();
         Error::from_raw_os_error(errno)
@@ -195,6 +200,7 @@ enum Repr {
 }
 
 impl fmt::Debug for Repr {
+    /// Implements fmt.
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Repr::Os(code) => fmt.debug_struct("Os").field("code", &code).finish(),
@@ -293,6 +299,7 @@ pub enum ErrorKind {
 }
 
 impl ErrorKind {
+    /// Implements as str.
     fn as_str(&self) -> &'static str {
         match *self {
             ErrorKind::NotFound => "entity not found",

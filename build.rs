@@ -2,12 +2,14 @@ extern crate cc;
 
 use std::{env, fs};
 
+/// Returns get target.
 fn get_target() -> String {
     env::var("TARGET").unwrap_or(
         option_env!("TARGET").map_or("x86_64-unknown-redox".to_string(), |x| x.to_string()),
     )
 }
 
+/// Implements main.
 fn main() {
     let _crate_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let target = get_target();

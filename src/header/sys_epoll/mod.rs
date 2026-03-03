@@ -40,6 +40,7 @@ pub union epoll_data {
     pub u64: u64,
 }
 impl Default for epoll_data {
+    /// Creates a new instance.
     fn default() -> Self {
         Self { u64: 0 }
     }
@@ -68,11 +69,13 @@ pub struct epoll_event {
 }
 
 #[unsafe(no_mangle)]
+/// Implements epoll create.
 pub extern "C" fn epoll_create(_size: c_int) -> c_int {
     epoll_create1(0)
 }
 
 #[unsafe(no_mangle)]
+/// Implements epoll create1.
 pub extern "C" fn epoll_create1(flags: c_int) -> c_int {
     trace_expr!(
         Sys::epoll_create1(flags).or_minus_one_errno(),
@@ -82,6 +85,7 @@ pub extern "C" fn epoll_create1(flags: c_int) -> c_int {
 }
 
 #[unsafe(no_mangle)]
+/// Implements epoll ctl.
 pub unsafe extern "C" fn epoll_ctl(
     epfd: c_int,
     op: c_int,
@@ -101,6 +105,7 @@ pub unsafe extern "C" fn epoll_ctl(
 }
 
 #[unsafe(no_mangle)]
+/// Implements epoll wait.
 pub unsafe extern "C" fn epoll_wait(
     epfd: c_int,
     events: *mut epoll_event,
@@ -111,6 +116,7 @@ pub unsafe extern "C" fn epoll_wait(
 }
 
 #[unsafe(no_mangle)]
+/// Implements epoll pwait.
 pub unsafe extern "C" fn epoll_pwait(
     epfd: c_int,
     events: *mut epoll_event,

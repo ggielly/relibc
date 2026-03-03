@@ -4,7 +4,6 @@
 
 use core::{
     convert::TryFrom,
-    ffi::VaList,
     mem::{self, MaybeUninit},
     ptr, slice,
 };
@@ -275,6 +274,7 @@ pub extern "C" fn dup2(fildes: c_int, fildes2: c_int) -> c_int {
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/dup.html>.
 // #[unsafe(no_mangle)]
+/// Implements dup3.
 pub extern "C" fn dup3(fildes: c_int, fildes2: c_int, flag: c_int) -> c_int {
     unimplemented!();
 }
@@ -526,6 +526,7 @@ pub extern "C" fn getegid() -> gid_t {
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/getentropy.html>.
 // #[unsafe(no_mangle)]
+/// Returns getentropy.
 pub extern "C" fn getentropy(buffer: *mut c_void, length: size_t) -> c_int {
     unimplemented!();
 }
@@ -560,6 +561,7 @@ pub unsafe extern "C" fn getgroups(size: c_int, list: *mut gid_t) -> c_int {
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/gethostid.html>.
 // #[unsafe(no_mangle)]
+/// Returns gethostid.
 pub extern "C" fn gethostid() -> c_long {
     unimplemented!();
 }
@@ -774,6 +776,7 @@ pub extern "C" fn lseek(fildes: c_int, offset: off_t, whence: c_int) -> off_t {
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/nice.html>.
 // #[unsafe(no_mangle)]
+/// Implements nice.
 pub extern "C" fn nice(incr: c_int) -> c_int {
     unimplemented!();
 }
@@ -1177,22 +1180,30 @@ pub extern "C" fn usleep(useconds: useconds_t) -> c_int {
 /// Specifications Issue 6, and removed in Issue 7.
 #[deprecated]
 // #[unsafe(no_mangle)]
+/// Implements vfork.
 pub extern "C" fn vfork() -> pid_t {
     unimplemented!();
 }
 
+/// Implements with argv.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn with_argv(
-    mut va: VaListImpl,
+    mut va: core::ffi::VaList<'_>,
     arg0: *const c_char,
-    f: impl FnOnce(&[*const c_char], VaListImpl) -> c_int,
+    f: impl FnOnce(&[*const c_char], core::ffi::VaList<'_>) -> c_int,
 ) -> c_int {
-    let argc = 1 + unsafe {
-        va.with_copy(|mut copy| {
-            core::iter::from_fn(|| Some(copy.arg::<*const c_char>()))
-                .position(|p| p.is_null())
-                .unwrap()
-        })
-    };
+    let mut argv: alloc::vec::Vec<*const c_char> = alloc::vec::Vec::new();
+    argv.push(arg0);
+    loop {
+        let arg = unsafe { va.arg::<*const c_char>() };
+        if arg.is_null() {
+            break;
+        }
+        argv.push(arg);
+    }
+    let argc = argv.len();
 
     let mut stack: [MaybeUninit<*const c_char>; 32] = [MaybeUninit::uninit(); 32];
 
@@ -1211,14 +1222,10 @@ unsafe fn with_argv(
         platform::ERRNO.set(E2BIG);
         return -1;
     };
-    out[0].write(arg0);
-
-    for i in 1..argc {
-        out[i].write(unsafe { va.arg::<*const c_char>() });
+    for (i, arg) in argv.iter().copied().enumerate() {
+        out[i].write(arg);
     }
     out[argc].write(core::ptr::null());
-    // NULL
-    unsafe { va.arg::<*const c_char>() };
 
     f(unsafe { (&*out).assume_init_ref() }, va);
 

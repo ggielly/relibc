@@ -29,6 +29,7 @@ pub const _PC_ALLOC_SIZE_MIN: c_int = 18;
 pub const _PC_SYMLINK_MAX: c_int = 19;
 pub const _PC_2_SYMLINKS: c_int = 20;
 
+/// Implements pc.
 fn pc(name: c_int) -> c_long {
     // Settings from musl, some adjusted
     match name {

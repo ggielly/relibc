@@ -4,6 +4,7 @@
 
 use crate::platform::types::c_uchar;
 
+/// Implements is.
 pub fn is(wc: usize) -> c_uchar {
     if wc < 0x20000 {
         return (table[(table[wc >> 8] as usize) * 32 + ((wc & 255) >> 3)] >> (wc & 7)) & 1;

@@ -8,32 +8,48 @@ pub struct RawCell<T> {
 }
 impl<T> RawCell<T> {
     #[inline]
+    /// Creates a new instance.
     pub const fn new(t: T) -> Self {
         Self {
             inner: UnsafeCell::new(t),
         }
     }
     #[inline]
+    /// Implements as mut ptr.
     pub fn as_mut_ptr(&self) -> *mut T {
         self.inner.get()
     }
     #[inline]
+    /// Returns get mut.
     pub fn get_mut(&mut self) -> &mut T {
         self.inner.get_mut()
     }
     #[inline]
+    /// Implements into inner.
     pub fn into_inner(self) -> T {
         self.inner.into_inner()
     }
     #[inline]
+    /// Implements unsafe ref.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn unsafe_ref(&self) -> &T {
         unsafe { &*self.inner.get() }
     }
     #[inline]
+    /// Implements unsafe set.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn unsafe_set(&self, t: T) {
         unsafe { *self.inner.get() = t };
     }
     #[inline]
+    /// Implements unsafe mut.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn unsafe_mut(&self) -> &mut T {
         unsafe { &mut *self.inner.get() }
     }

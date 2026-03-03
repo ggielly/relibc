@@ -16,6 +16,7 @@ use core::{
     ptr, slice,
 };
 
+/// Implements timer routine.
 pub extern "C" fn timer_routine(arg: *mut c_void) -> *mut c_void {
     let timer_st = unsafe { &mut *(arg as *mut timer_internal_t) };
 
@@ -58,6 +59,7 @@ pub extern "C" fn timer_routine(arg: *mut c_void) -> *mut c_void {
     ptr::null_mut()
 }
 
+/// Implements timer next event.
 fn timer_next_event(timer_st: &mut timer_internal_t) -> Result<()> {
     timer_update_wake_time(timer_st)?;
     let buf_to_write = unsafe {
@@ -80,6 +82,7 @@ fn timer_next_event(timer_st: &mut timer_internal_t) -> Result<()> {
     Ok(())
 }
 
+/// Implements timer update wake time.
 pub(crate) fn timer_update_wake_time(timer_st: &mut timer_internal_t) -> Result<()> {
     timer_st.next_wake_time.it_value = if timer_st.next_wake_time.it_interval.is_default() {
         timespec::default()

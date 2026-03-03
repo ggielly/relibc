@@ -72,6 +72,7 @@ pub static mut environ: *mut *mut c_char = ptr::null_mut();
 
 pub static OUR_ENVIRON: RawCell<Vec<*mut c_char>> = RawCell::new(Vec::new());
 
+/// Implements environ iter.
 pub fn environ_iter() -> impl Iterator<Item = *mut c_char> + 'static {
     unsafe {
         let mut ptrs = environ;
@@ -93,10 +94,12 @@ pub fn environ_iter() -> impl Iterator<Item = *mut c_char> + 'static {
 }
 
 pub trait WriteByte: fmt::Write {
+    /// Implements write u8.
     fn write_u8(&mut self, byte: u8) -> fmt::Result;
 }
 
 impl<W: WriteByte> WriteByte for &mut W {
+    /// Implements write u8.
     fn write_u8(&mut self, byte: u8) -> fmt::Result {
         (**self).write_u8(byte)
     }
@@ -105,10 +108,12 @@ impl<W: WriteByte> WriteByte for &mut W {
 pub struct FileWriter(pub c_int, Option<Errno>);
 
 impl FileWriter {
+    /// Creates a new instance.
     pub fn new(fd: c_int) -> Self {
         Self(fd, None)
     }
 
+    /// Implements write.
     pub fn write(&mut self, buf: &[u8]) -> fmt::Result {
         let _ = Sys::write(self.0, buf).map_err(|err| {
             self.1 = Some(err);
@@ -119,6 +124,7 @@ impl FileWriter {
 }
 
 impl fmt::Write for FileWriter {
+    /// Implements write str.
     fn write_str(&mut self, s: &str) -> fmt::Result {
         if let Ok(()) = self.write(s.as_bytes()) {}; // TODO handle error
         Ok(())
@@ -126,6 +132,7 @@ impl fmt::Write for FileWriter {
 }
 
 impl WriteByte for FileWriter {
+    /// Implements write u8.
     fn write_u8(&mut self, byte: u8) -> fmt::Result {
         if let Ok(()) = self.write(&[byte]) {}; // TODO handle error
         Ok(())
@@ -136,6 +143,7 @@ pub struct FileReader(pub c_int);
 
 impl FileReader {
     // TODO: This is a bad interface. Rustify
+    /// Implements read.
     pub fn read(&mut self, buf: &mut [u8]) -> isize {
         Sys::read(self.0, buf)
             .map(|u| u as isize)
@@ -144,6 +152,7 @@ impl FileReader {
 }
 
 impl Read for FileReader {
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let i = Sys::read(self.0, buf)
             .map(|u| u as isize)
@@ -158,6 +167,7 @@ impl Read for FileReader {
 
 pub struct StringWriter(pub *mut u8, pub usize);
 impl Write for StringWriter {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if self.1 > 1 {
             let copy_size = buf.len().min(self.1 - 1);
@@ -177,11 +187,13 @@ impl Write for StringWriter {
         // `cmp::min(written, maxlen)`.
         Ok(buf.len())
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
 impl fmt::Write for StringWriter {
+    /// Implements write str.
     fn write_str(&mut self, s: &str) -> fmt::Result {
         // can't fail
         self.write(s.as_bytes()).unwrap();
@@ -189,6 +201,7 @@ impl fmt::Write for StringWriter {
     }
 }
 impl WriteByte for StringWriter {
+    /// Implements write u8.
     fn write_u8(&mut self, byte: u8) -> fmt::Result {
         // can't fail
         self.write(&[byte]).unwrap();
@@ -198,6 +211,7 @@ impl WriteByte for StringWriter {
 
 pub struct UnsafeStringWriter(pub *mut u8);
 impl Write for UnsafeStringWriter {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         unsafe {
             ptr::copy_nonoverlapping(buf.as_ptr(), self.0, buf.len());
@@ -206,11 +220,13 @@ impl Write for UnsafeStringWriter {
         }
         Ok(buf.len())
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
 impl fmt::Write for UnsafeStringWriter {
+    /// Implements write str.
     fn write_str(&mut self, s: &str) -> fmt::Result {
         // can't fail
         self.write(s.as_bytes()).unwrap();
@@ -218,6 +234,7 @@ impl fmt::Write for UnsafeStringWriter {
     }
 }
 impl WriteByte for UnsafeStringWriter {
+    /// Implements write u8.
     fn write_u8(&mut self, byte: u8) -> fmt::Result {
         // can't fail
         self.write(&[byte]).unwrap();
@@ -227,6 +244,7 @@ impl WriteByte for UnsafeStringWriter {
 
 pub struct UnsafeStringReader(pub *const u8);
 impl Read for UnsafeStringReader {
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         unsafe {
             for i in 0..buf.len() {
@@ -247,6 +265,7 @@ pub struct CountingWriter<T> {
     pub written: usize,
 }
 impl<T> CountingWriter<T> {
+    /// Creates a new instance.
     pub fn new(writer: T) -> Self {
         Self {
             inner: writer,
@@ -255,18 +274,21 @@ impl<T> CountingWriter<T> {
     }
 }
 impl<T: fmt::Write> fmt::Write for CountingWriter<T> {
+    /// Implements write str.
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.written += s.len();
         self.inner.write_str(s)
     }
 }
 impl<T: WriteByte> WriteByte for CountingWriter<T> {
+    /// Implements write u8.
     fn write_u8(&mut self, byte: u8) -> fmt::Result {
         self.written += 1;
         self.inner.write_u8(byte)
     }
 }
 impl<T: Write> Write for CountingWriter<T> {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let res = self.inner.write(buf);
         if let Ok(written) = res {
@@ -274,6 +296,7 @@ impl<T: Write> Write for CountingWriter<T> {
         }
         res
     }
+    /// Implements write all.
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         match self.inner.write_all(buf) {
             Ok(()) => (),
@@ -283,6 +306,7 @@ impl<T: Write> Write for CountingWriter<T> {
         self.written += buf.len();
         Ok(())
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()
     }
@@ -297,6 +321,7 @@ pub unsafe fn auxv_iter<'a>(ptr: *const usize) -> impl Iterator<Item = [usize; 2
     impl Iterator for St {
         type Item = [usize; 2];
 
+        /// Implements next.
         fn next(&mut self) -> Option<Self::Item> {
             unsafe {
                 if *self.0 == self::auxv_defs::AT_NULL {
@@ -314,6 +339,10 @@ pub unsafe fn auxv_iter<'a>(ptr: *const usize) -> impl Iterator<Item = [usize; 2
 }
 
 #[cold]
+/// Returns get auxvs.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn get_auxvs(ptr: *const usize) -> Box<[[usize; 2]]> {
     //traverse the stack and collect argument environment variables
     let mut auxvs = unsafe { auxv_iter(ptr) }.collect::<Vec<_>>();
@@ -323,10 +352,15 @@ pub unsafe fn get_auxvs(ptr: *const usize) -> Box<[[usize; 2]]> {
 }
 // TODO: Find an auxv replacement for Redox's execv protocol
 #[cold]
+/// Returns get auxv raw.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn get_auxv_raw(ptr: *const usize, requested_kind: usize) -> Option<usize> {
     unsafe { auxv_iter(ptr) }
         .find_map(|[kind, value]| Some(value).filter(|_| kind == requested_kind))
 }
+/// Returns get auxv.
 pub fn get_auxv(auxvs: &[[usize; 2]], key: usize) -> Option<usize> {
     auxvs
         .binary_search_by_key(&key, |[entry_key, _]| *entry_key)
@@ -337,6 +371,10 @@ pub fn get_auxv(auxvs: &[[usize; 2]], key: usize) -> Option<usize> {
 #[cold]
 #[cfg(target_os = "redox")]
 // SAFETY: Must only be called when only one thread exists.
+/// Implements init.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn init(auxvs: Box<[[usize; 2]]>) {
     use self::auxv_defs::*;
     use redox_rt::proc::FdGuard;
@@ -361,6 +399,10 @@ pub unsafe fn init(auxvs: Box<[[usize; 2]]>) {
 }
 #[cold]
 #[cfg(target_os = "redox")]
+/// Implements init inner.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn init_inner(auxvs: Box<[[usize; 2]]>) {
     use self::auxv_defs::*;
     use crate::header::sys_stat::S_ISVTX;
@@ -421,4 +463,8 @@ pub unsafe fn init_inner(auxvs: Box<[[usize; 2]]>) {
     }
 }
 #[cfg(not(target_os = "redox"))]
+/// Implements init.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn init(auxvs: Box<[[usize; 2]]>) {}

@@ -7,6 +7,10 @@ use crate::{
 };
 use core::ffi::VaList;
 
+/// Implements wprintf.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn wprintf(w: impl Write, format: WStr, ap: VaList) -> c_int {
     unsafe { inner_printf::<c_str::Wide>(w, format, ap).unwrap_or(-1) }
 }

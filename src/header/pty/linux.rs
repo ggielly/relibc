@@ -6,6 +6,10 @@ use crate::{
     platform::types::{c_char, c_int, c_void},
 };
 
+/// Implements openpty.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(super) unsafe fn openpty(name: &mut [u8]) -> Result<(c_int, c_int), ()> {
     //TODO: wrap in auto-close struct
     let master = unsafe { fcntl::open(c"/dev/ptmx".as_ptr(), fcntl::O_RDWR | fcntl::O_NOCTTY, 0) };

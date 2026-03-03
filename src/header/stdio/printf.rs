@@ -63,6 +63,10 @@ pub(crate) enum Number {
     Next,
 }
 impl Number {
+    /// Implements resolve.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub(crate) unsafe fn resolve(self, varargs: &mut VaListCache, ap: &mut VaList) -> usize {
         let arg = match self {
             Number::Static(num) => return num,
@@ -103,6 +107,10 @@ pub(crate) enum VaArg {
     wint_t(wint_t),
 }
 impl VaArg {
+    /// Implements arg from.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub(crate) unsafe fn arg_from(fmtkind: FmtKind, intkind: IntKind, ap: &mut VaList) -> VaArg {
         // Per the C standard using va_arg with a type with a size
         // less than that of an int for integers and double for floats
@@ -156,6 +164,10 @@ impl VaArg {
             }
         }
     }
+    /// Implements transmute.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn transmute(&self, fmtkind: FmtKind, intkind: IntKind) -> VaArg {
         // At this point, there are conflicting printf arguments. An
         // example of this is:
@@ -239,6 +251,10 @@ pub(crate) struct VaListCache {
     pub(crate) i: usize,
 }
 impl VaListCache {
+    /// Returns get.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub(crate) unsafe fn get(
         &mut self,
         i: usize,
@@ -357,6 +373,7 @@ fn pad<W: Write>(
     Ok(())
 }
 
+/// Implements float string.
 fn float_string(float: c_double, precision: usize, trim: bool) -> String {
     let mut string = format!("{:.p$}", float, p = precision);
     if trim && string.contains('.') {
@@ -373,6 +390,7 @@ fn float_string(float: c_double, precision: usize, trim: bool) -> String {
     string
 }
 
+/// Implements float exp.
 fn float_exp(mut float: c_double) -> (c_double, isize) {
     let mut exp: isize = 0;
     while float.abs() >= 10.0 {
@@ -508,6 +526,7 @@ pub(crate) enum PrintfFmt<'a, U> {
 impl<'a, T: c_str::Kind> Iterator for PrintfIter<'a, T> {
     type Item = Result<PrintfFmt<'a, T::Char>, ()>;
 
+    /// Implements next.
     fn next(&mut self) -> Option<Self::Item> {
         // Send PrintfFmt::Plain until the next %
         let first_percent = match self.format.find_get_subslice_or_all(b'%') {

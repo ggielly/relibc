@@ -34,12 +34,14 @@ unsafe impl<T: Send> Send for Once<T> {}
 unsafe impl<T: Send + Sync> Sync for Once<T> {}
 
 impl<T> Once<T> {
+    /// Creates a new instance.
     pub const fn new() -> Self {
         Self {
             status: AtomicInt::new(UNINITIALIZED),
             data: UnsafeCell::new(MaybeUninit::uninit()),
         }
     }
+    /// Implements call once.
     pub fn call_once(&self, constructor: impl FnOnce() -> T) -> &T {
         match self.status.compare_exchange(
             UNINITIALIZED,
@@ -104,6 +106,7 @@ impl<T> Once<T> {
     }
 }
 impl<T> Default for Once<T> {
+    /// Creates a new instance.
     fn default() -> Self {
         Self::new()
     }
@@ -112,6 +115,7 @@ impl<T> Default for Once<T> {
 // Drop, and don't use that wrapper when writing the header file impls.
 /*
 impl<T> Drop for Once<T> {
+    /// Implements drop.
     fn drop(&mut self) {
         unsafe {
             if *self.status.get_mut() == INITIALIZED {

@@ -145,6 +145,10 @@ pub unsafe extern "C" fn getopt_long(
     }
 }
 
+/// Implements parse arg.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn parse_arg(
     argc: c_int,
     argv: *const *mut c_char,
@@ -223,6 +227,10 @@ enum GetoptOption {
     OptArg,
 }
 
+/// Implements find option.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn find_option(ch: c_char, optstring: *const c_char) -> Option<GetoptOption> {
     let mut i = 0;
 

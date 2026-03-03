@@ -12,30 +12,37 @@ use super::IoctlBuffer;
 
 const DRM_FORMAT_ARGB8888: u32 = 0x34325241; // 'AR24' fourcc code, for ARGB8888
 
+/// Implements id index.
 fn id_index(id: u32) -> u32 {
     id & 0xFF
 }
 
+/// Implements conn id.
 fn conn_id(i: u32) -> u32 {
     id_index(i) | (1 << 8)
 }
 
+/// Implements crtc id.
 fn crtc_id(i: u32) -> u32 {
     id_index(i) | (1 << 9)
 }
 
+/// Implements enc id.
 fn enc_id(i: u32) -> u32 {
     id_index(i) | (1 << 10)
 }
 
+/// Implements fb id.
 fn fb_id(i: u32) -> u32 {
     id_index(i) | (1 << 11)
 }
 
+/// Implements fb handle id.
 fn fb_handle_id(i: u32) -> u32 {
     id_index(i) | (1 << 12)
 }
 
+/// Implements plane id.
 fn plane_id(i: u32) -> u32 {
     id_index(i) | (1 << 13)
 }
@@ -51,6 +58,7 @@ struct Dev {
 }
 
 impl Dev {
+    /// Creates a new instance.
     fn new(fd: c_int) -> Result<Self> {
         //TODO: check display scheme using fpath?
         Ok(Self { fd })
@@ -87,6 +95,10 @@ impl Dev {
     }
 }
 
+/// Implements ioctl.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(super) unsafe fn ioctl(fd: c_int, func: u8, buf: IoctlBuffer) -> Result<c_int> {
     let dev = Dev::new(fd)?;
     match func {

@@ -20,6 +20,10 @@ mod imp;
 #[path = "redox.rs"]
 mod imp;
 
+#[cfg(target_os = "strat9")]
+#[path = "linux.rs"]
+mod imp;
+
 /// See <https://www.man7.org/linux/man-pages/man3/openpty.3.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn openpty(

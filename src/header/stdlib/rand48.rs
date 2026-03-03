@@ -14,6 +14,7 @@ use crate::{
 pub struct U48(u64);
 
 impl From<&[c_ushort; 3]> for U48 {
+    /// Implements from.
     fn from(value: &[c_ushort; 3]) -> Self {
         /* Cast via u16 to ensure we get only the lower 16 bits of each
          * element, as specified by POSIX. */
@@ -26,6 +27,7 @@ impl From<&[c_ushort; 3]> for U48 {
 }
 
 impl From<&mut [c_ushort; 3]> for U48 {
+    /// Implements from.
     fn from(value: &mut [c_ushort; 3]) -> Self {
         Self::from(&*value)
     }
@@ -34,6 +36,7 @@ impl From<&mut [c_ushort; 3]> for U48 {
 impl TryFrom<u64> for U48 {
     type Error = u64;
 
+    /// Implements try from.
     fn try_from(value: u64) -> Result<Self, u64> {
         if value < 0x1_0000_0000_0000 {
             Ok(Self(value))
@@ -44,12 +47,14 @@ impl TryFrom<u64> for U48 {
 }
 
 impl From<U48> for u64 {
+    /// Implements from.
     fn from(value: U48) -> Self {
         value.0
     }
 }
 
 impl From<U48> for [c_ushort; 3] {
+    /// Implements from.
     fn from(value: U48) -> Self {
         [
             // "as u16" in case c_ushort is larger than u16
@@ -90,6 +95,7 @@ pub struct Params {
 }
 
 impl Params {
+    /// Creates a new instance.
     pub const fn new() -> Self {
         // Default values as specified in POSIX
         Params {
@@ -98,6 +104,7 @@ impl Params {
         }
     }
 
+    /// Implements reset.
     pub fn reset(&mut self) {
         *self = Self::new();
     }
@@ -108,6 +115,7 @@ impl Params {
         self.c = c as u16; // Per POSIX, discard higher bits in case unsigned short is larger than u16
     }
 
+    /// Implements step.
     pub fn step(&self, xsubi: U48) -> U48 {
         /* The recurrence relation of the linear congruential generator,
          * X_(n+1) = (a * X_n + c) % m,

@@ -72,6 +72,7 @@ pub struct user {
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen export x86 user.
 pub extern "C" fn _cbindgen_export_x86_user(
     a: user_fpregs_struct,
     b: user_regs_struct,

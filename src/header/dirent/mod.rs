@@ -38,6 +38,7 @@ pub struct DIR {
     opaque_offset: u64,
 }
 impl DIR {
+    /// Creates a new instance.
     pub fn new(path: CStr) -> Result<Box<Self>, Errno> {
         Ok(Box::new(Self {
             file: File::open(
@@ -49,6 +50,7 @@ impl DIR {
             opaque_offset: 0,
         }))
     }
+    /// Implements from fd.
     pub fn from_fd(fd: c_int) -> Result<Box<Self>, Errno> {
         let mut stat = sys_stat::stat::default();
         Sys::fstat(fd, Out::from_mut(&mut stat))?;
@@ -67,6 +69,7 @@ impl DIR {
         }
         .into())
     }
+    /// Implements next dirent.
     fn next_dirent(&mut self) -> Result<*mut dirent, Errno> {
         let mut this_dent = self.buf.get(self.buf_offset..).ok_or(Errno(EIO))?;
         if this_dent.is_empty() {
@@ -114,6 +117,7 @@ impl DIR {
         self.buf_offset = next_off;
         Ok(dent_ptr)
     }
+    /// Implements seek.
     fn seek(&mut self, off: u64) {
         let Ok(_) = Sys::dir_seek(*self.file, off) else {
             return;
@@ -122,6 +126,7 @@ impl DIR {
         self.buf_offset = 0;
         self.opaque_offset = off;
     }
+    /// Implements rewind.
     fn rewind(&mut self) {
         self.opaque_offset = 0;
         let Ok(_) = Sys::dir_seek(*self.file, 0) else {
@@ -131,6 +136,7 @@ impl DIR {
         self.buf_offset = 0;
         self.opaque_offset = 0;
     }
+    /// Implements close.
     fn close(mut self) -> Result<(), Errno> {
         // Reference files aren't closed when dropped
         self.file.reference = true;
@@ -258,6 +264,7 @@ pub extern "C" fn readdir(dir: &mut DIR) -> *mut dirent {
 /// Specifications Issue 8.
 #[deprecated]
 // #[unsafe(no_mangle)]
+/// Implements readdir r.
 pub extern "C" fn readdir_r(
     _dir: *mut DIR,
     _entry: *mut dirent,
@@ -369,4 +376,5 @@ pub extern "C" fn telldir(dir: &mut DIR) -> c_long {
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen stupid struct user for posix dent.
 pub unsafe extern "C" fn cbindgen_stupid_struct_user_for_posix_dent(_: posix_dent) {}

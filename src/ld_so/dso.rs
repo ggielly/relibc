@@ -121,6 +121,7 @@ impl<'a> HashTable<'a> {
         }
     }
 
+    /// Implements symbol table length.
     fn symbol_table_length(&self) -> usize {
         match self {
             Self::Gnu(hash_table) => hash_table
@@ -153,18 +154,21 @@ pub(super) struct Dynamic<'data> {
 }
 
 impl<'data> Dynamic<'data> {
+    /// Implements symbol.
     pub fn symbol(&self, index: SymbolIndex) -> Option<&'data Sym> {
         // Symbol table entry for index 0 is reserved.
         assert!(index != SymbolIndex(0));
         self.symbols.get(index.0)
     }
 
+    /// Implements symbol name.
     fn symbol_name(&self, index: SymbolIndex) -> Option<&'data str> {
         let sym = self.symbol(index)?;
         let name = sym.name(NativeEndian, self.dynstrtab).ok()?;
         Some(core::str::from_utf8(name).expect("non UTF-8 ELF symbol name"))
     }
 
+    /// Implements static relocations.
     fn static_relocations(&self) -> impl Iterator<Item = Relocation> + '_ {
         self.rela
             .iter()
@@ -186,6 +190,7 @@ pub(super) struct Relocation {
 
 #[cfg(target_pointer_width = "32")]
 impl From<&Rela> for Relocation {
+    /// Implements from.
     fn from(reloc: &Rela) -> Self {
         Self {
             offset: reloc.r_offset(NativeEndian) as usize,
@@ -198,6 +203,7 @@ impl From<&Rela> for Relocation {
 
 #[cfg(target_pointer_width = "64")]
 impl From<&Rela> for Relocation {
+    /// Implements from.
     fn from(reloc: &Rela) -> Self {
         let is_mips64el = cfg!(all(target_arch = "mips64", target_endian = "little"));
         Self {
@@ -210,6 +216,7 @@ impl From<&Rela> for Relocation {
 }
 
 impl From<&Rel> for Relocation {
+    /// Implements from.
     fn from(reloc: &Rel) -> Self {
         Self {
             offset: reloc.r_offset(NativeEndian) as usize,
@@ -240,6 +247,7 @@ pub enum RelocationKind {
 
 impl RelocationKind {
     #[cfg(target_arch = "aarch64")]
+    /// Creates a new instance.
     pub fn new(kind: u32) -> Self {
         //WARNING: Only use R_AARCH64_* constants here!
         match kind {
@@ -258,6 +266,7 @@ impl RelocationKind {
     }
 
     #[cfg(target_arch = "riscv64")]
+    /// Creates a new instance.
     pub fn new(kind: u32) -> Self {
         //WARNING: Only use R_RISCV_* constants here!
         match kind {
@@ -275,6 +284,7 @@ impl RelocationKind {
     }
 
     #[cfg(target_arch = "x86")]
+    /// Creates a new instance.
     pub fn new(kind: u32) -> Self {
         //WARNING: Only use R_386_* constants here!
         match kind {
@@ -294,6 +304,7 @@ impl RelocationKind {
     }
 
     #[cfg(target_arch = "x86_64")]
+    /// Creates a new instance.
     pub fn new(kind: u32) -> Self {
         //WARNING: Only use R_X86_64_* constants here!
         match kind {
@@ -326,6 +337,7 @@ pub enum SymbolBinding {
 
 impl SymbolBinding {
     #[inline]
+    /// Checks whether is global.
     pub fn is_global(&self) -> bool {
         matches!(self, Self::Global)
     }
@@ -353,6 +365,7 @@ pub struct DSO {
 }
 
 impl DSO {
+    /// Creates a new instance.
     pub fn new(
         path: &str,
         data: &[u8],
@@ -403,11 +416,13 @@ impl DSO {
     }
 
     #[inline]
+    /// Implements mark ready.
     pub fn mark_ready(&self) {
         self.is_ready.store(true, Ordering::SeqCst);
     }
 
     #[inline]
+    /// Implements scope.
     pub fn scope(&self) -> &Scope {
         self.scope.get().expect("scope not initialized")
     }
@@ -419,11 +434,13 @@ impl DSO {
     }
 
     #[inline]
+    /// Implements runpath.
     pub fn runpath(&self) -> Option<&String> {
         self.dynamic.runpath.as_ref()
     }
 
     #[inline]
+    /// Implements dependencies.
     pub fn dependencies(&self) -> &[&str] {
         &self.dynamic.needed
     }
@@ -462,12 +479,14 @@ impl DSO {
         ))
     }
 
+    /// Implements run init.
     pub fn run_init(&self) {
         for f in self.dynamic.init_array {
             unsafe { f() }
         }
     }
 
+    /// Implements run fini.
     pub fn run_fini(&self) {
         for f in self.dynamic.fini_array.iter().rev() {
             unsafe { f() }
@@ -887,6 +906,7 @@ impl DSO {
         }
     }
 
+    /// Implements static relocate.
     fn static_relocate(&self, global_scope: &Scope, reloc: Relocation) -> object::Result<()> {
         let b = self.mmap.as_ptr() as usize;
 
@@ -1000,6 +1020,7 @@ impl DSO {
         Ok(())
     }
 
+    /// Implements lazy relocate.
     fn lazy_relocate(&self, global_scope: &Scope, resolve: Resolve) -> object::Result<()> {
         let Some(got) = self.got() else {
             assert_eq!(self.dynamic.jmprel, 0);
@@ -1081,6 +1102,7 @@ impl DSO {
         Ok(())
     }
 
+    /// Implements relocate.
     pub fn relocate(&self, ph: &[ProgramHeader], resolve: Resolve) -> object::Result<()> {
         let global_scope = GLOBAL_SCOPE.read();
         let base = self.mmap.as_ptr();
@@ -1133,6 +1155,7 @@ impl DSO {
 }
 
 impl Drop for DSO {
+    /// Implements drop.
     fn drop(&mut self) {
         if self.is_ready.load(Ordering::SeqCst) {
             // `run_fini` should not be called if we are being prematurely
@@ -1143,14 +1166,17 @@ impl Drop for DSO {
     }
 }
 
+/// Checks whether is pie enabled.
 fn is_pie_enabled(elf: &ElfFile) -> bool {
     elf.elf_header().e_type.get(elf.endian()) == elf::ET_DYN
 }
 
+/// Implements basename.
 fn basename(path: &str) -> String {
     path.split("/").last().unwrap_or(path).to_string()
 }
 
+/// Implements dirname.
 fn dirname(path: &str) -> String {
     let mut parts: Vec<&str> = path.split("/").collect();
     parts.truncate(parts.len() - 1);
@@ -1172,29 +1198,34 @@ struct TlsDescriptor {
 
 #[cfg(target_arch = "x86_64")]
 #[unsafe(naked)]
+/// Implements tlsdesc static.
 unsafe extern "C" fn __tlsdesc_static() {
     core::arch::naked_asm!("mov rax, [rax + 8]", "ret")
 }
 
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
+/// Implements tlsdesc static.
 unsafe extern "C" fn __tlsdesc_static() {
     core::arch::naked_asm!("mov eax, [eax + 4]", "ret")
 }
 
 #[cfg(target_arch = "aarch64")]
 #[unsafe(naked)]
+/// Implements tlsdesc static.
 unsafe extern "C" fn __tlsdesc_static() {
     core::arch::naked_asm!("ldr x0, [x0, #8]", "ret")
 }
 
 #[cfg(target_arch = "riscv64")]
 #[unsafe(naked)]
+/// Implements tlsdesc static.
 unsafe extern "C" fn __tlsdesc_static() {
     core::arch::naked_asm!("ld a0, 8(a0)", "ret");
 }
 
 unsafe extern "C" {
+    /// Implements tlsdesc dynamic.
     fn __tlsdesc_dynamic();
 }
 

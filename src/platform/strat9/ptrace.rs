@@ -6,10 +6,11 @@
 //!
 //! In the future, ptrace could be implemented via IPC to a debug service.
 
-use super::super::{Pal, PalPtrace, types::*};
+use super::super::{PalPtrace, types::*};
 use crate::error::Result;
 
 impl PalPtrace for super::Sys {
+    /// Perform a ptrace request (currently unsupported on Strat9).
     unsafe fn ptrace(
         _request: c_int,
         _pid: pid_t,

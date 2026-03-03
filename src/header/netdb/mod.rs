@@ -178,6 +178,7 @@ static SERV_PROTO: RawCell<Option<Vec<u8>>> = RawCell::new(None);
 static mut S_POS: usize = 0;
 static mut SERV_STAYOPEN: c_int = 0;
 
+/// Implements bytes to box str.
 fn bytes_to_box_str(bytes: &[u8]) -> Box<str> {
     Box::from(core::str::from_utf8(bytes).unwrap_or(""))
 }
@@ -1105,6 +1106,7 @@ pub extern "C" fn __h_errno_location() -> *mut c_int {
 
 #[unsafe(no_mangle)]
 #[deprecated]
+/// Implements hstrerror.
 pub const extern "C" fn hstrerror(errcode: c_int) -> *const c_char {
     match errcode {
         H_UNSET => c"Resolver error unset",

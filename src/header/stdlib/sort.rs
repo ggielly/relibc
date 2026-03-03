@@ -1,5 +1,9 @@
 use crate::platform::types::{c_char, c_int, c_void, size_t};
 
+/// Implements introsort.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn introsort(
     base: *mut c_char,
     nel: size_t,
@@ -14,6 +18,7 @@ pub unsafe fn introsort(
 }
 
 // NOTE: if num is 0, the result should be considered undefined
+/// Implements log2.
 fn log2(num: size_t) -> size_t {
     const IS_32_BIT: bool = size_t::MAX as u32 as size_t == size_t::MAX;
 
@@ -27,6 +32,10 @@ fn log2(num: size_t) -> size_t {
     max_bits - num.to_le().leading_zeros() as size_t
 }
 
+/// Implements introsort helper.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn introsort_helper(
     mut base: *mut c_char,
     mut nel: size_t,
@@ -65,6 +74,10 @@ unsafe fn introsort_helper(
     }
 }
 
+/// Implements insertion sort.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn insertion_sort(
     base: *mut c_char,
     nel: size_t,
@@ -84,6 +97,10 @@ unsafe fn insertion_sort(
     }
 }
 
+/// Implements heapsort.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn heapsort(
     base: *mut c_char,
     nel: size_t,
@@ -101,6 +118,10 @@ unsafe fn heapsort(
     }
 }
 
+/// Implements heapify.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn heapify(
     base: *mut c_char,
     nel: size_t,
@@ -115,6 +136,10 @@ unsafe fn heapify(
     }
 }
 
+/// Implements heap sift down.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn heap_sift_down(
     base: *mut c_char,
     start: size_t,
@@ -155,6 +180,10 @@ unsafe fn heap_sift_down(
 }
 
 #[inline]
+/// Implements partition.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn partition(
     base: *mut c_char,
     nel: size_t,
@@ -198,6 +227,10 @@ unsafe fn partition(
     (i, n)
 }
 
+/// Implements median of three.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn median_of_three(
     base: *mut c_char,
     nel: size_t,
@@ -222,6 +255,10 @@ unsafe fn median_of_three(
 }
 
 #[inline]
+/// Implements swap.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn swap(mut ptr1: *mut c_char, mut ptr2: *mut c_char, mut width: size_t) {
     use core::mem;
 

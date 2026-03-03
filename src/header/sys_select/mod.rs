@@ -47,6 +47,7 @@ pub struct fd_set {
 }
 
 #[allow(clippy::needless_update)]
+/// Implements select epoll.
 pub fn select_epoll(
     nfds: c_int,
     readfds: Option<&mut fd_set>,
@@ -182,6 +183,7 @@ pub fn select_epoll(
 }
 
 #[cfg(target_os = "strat9")]
+/// Implements select poll.
 fn select_poll(
     nfds: c_int,
     mut readfds: Option<&mut fd_set>,

@@ -44,6 +44,7 @@ impl<'a, T: ?Sized> Out<'a, T> {
         }
     }
     #[inline]
+    /// Implements from mut.
     pub fn from_mut(r: &'a mut T) -> Self {
         // SAFETY:
         //
@@ -53,12 +54,14 @@ impl<'a, T: ?Sized> Out<'a, T> {
         unsafe { Self::nonnull(r) }
     }
     #[inline]
+    /// Implements as mut ptr.
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.ptr.as_ptr()
     }
 }
 impl<'a, T> Out<'a, T> {
     #[inline]
+    /// Implements from uninit mut.
     pub fn from_uninit_mut(r: &'a mut MaybeUninit<T>) -> Self {
         // SAFETY:
         //
@@ -67,6 +70,7 @@ impl<'a, T> Out<'a, T> {
         unsafe { Self::nonnull(r.as_mut_ptr()) }
     }
     #[inline]
+    /// Implements write.
     pub fn write(&mut self, t: T) {
         unsafe {
             self.ptr.as_ptr().write(t);
@@ -96,9 +100,11 @@ impl<'a, T> Out<'a, [T]> {
         };
         unsafe { Self::nonnull(core::slice::from_raw_parts_mut(ptr, len)) }
     }
+    /// Implements len.
     pub fn len(&self) -> usize {
         self.ptr.as_ptr().len()
     }
+    /// Checks whether is empty.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -131,6 +137,7 @@ impl<'a, T> Out<'a, [T]> {
         ])
     }
     #[inline]
+    /// Implements copy from slice.
     pub fn copy_from_slice(&mut self, src: &[T])
     where
         T: Copy,
@@ -154,6 +161,7 @@ impl<'a, T> Out<'a, [T]> {
                 .copy_from_nonoverlapping(src.as_ptr(), src.len());
         }
     }
+    /// Implements copy common length from slice.
     pub fn copy_common_length_from_slice(&mut self, src: &[T]) -> usize
     where
         T: Copy,
@@ -175,6 +183,7 @@ impl<'a, T> Out<'a, [T]> {
 }
 // TODO: use bytemuck
 impl<T: plain::Plain> Out<'_, [T]> {
+    /// Implements zero.
     pub fn zero(&mut self) {
         let l = self.ptr.len();
         unsafe {
@@ -209,11 +218,13 @@ unsafe impl CastSlice<u8> for u8 {}
 unsafe impl CastSlice<i8> for i8 {}
 
 impl<T: ?Sized> fmt::Pointer for Out<'_, T> {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:p}", self.ptr)
     }
 }
 impl<T: ?Sized> fmt::Debug for Out<'_, T> {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[Out: {:p}]", self.ptr)
     }

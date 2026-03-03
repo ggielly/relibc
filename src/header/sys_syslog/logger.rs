@@ -40,6 +40,7 @@ pub(super) struct LogParams<L: LogSink> {
 }
 
 impl<L: LogSink> LogParams<L> {
+    /// Creates a new instance.
     pub const fn new(writer: Option<L>) -> Self {
         LogParams {
             ident: String::new(),
@@ -49,6 +50,7 @@ impl<L: LogSink> LogParams<L> {
         }
     }
 
+    /// Implements write log.
     pub fn write_log(&mut self, priority: Priority, message: CStr<'_>, ap: VaList) {
         if message.is_empty() {
             return;
@@ -182,10 +184,12 @@ impl<L: LogSink> LogParams<L> {
 pub(super) trait LogSink {
     type Sink: Write;
 
+    /// Implements open.
     fn open() -> Result<Self>
     where
         Self: Sized;
 
+    /// Implements writer.
     fn writer(&mut self) -> &mut Self::Sink;
 }
 

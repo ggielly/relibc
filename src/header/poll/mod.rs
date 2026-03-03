@@ -47,6 +47,10 @@ pub struct pollfd {
     pub revents: c_short,
 }
 
+/// Implements poll epoll.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn poll_epoll(fds: &mut [pollfd], timeout: c_int, sigmask: *const sigset_t) -> c_int {
     let event_map = [
         (POLLIN, EPOLLIN),
@@ -143,8 +147,13 @@ pub unsafe fn poll_epoll(fds: &mut [pollfd], timeout: c_int, sigmask: *const sig
 }
 
 #[cfg(target_os = "strat9")]
+/// Implements poll syscall.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn poll_syscall(fds: *mut pollfd, nfds: nfds_t, timeout: c_int) -> c_int {
-    let ret = unsafe { crate::strat9_syscall!(SYS_POLL, fds as u64, nfds as u64, timeout as i64 as u64) };
+    use strat9_abi::syscall::SYS_POLL;
+    let ret = crate::strat9_syscall!(SYS_POLL, fds as u64, nfds as u64, timeout as i64 as u64);
     if ret > c_int::MAX as u64 {
         platform::ERRNO.set((ret as c_int).wrapping_neg());
         -1

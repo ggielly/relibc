@@ -564,6 +564,7 @@ mod tests {
     use super::parse_am_pm;
 
     #[test]
+    /// Implements am pm parser works.
     fn am_pm_parser_works() {
         let am = "am";
         let am_expected = Some((false, 2));

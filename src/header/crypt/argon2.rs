@@ -4,6 +4,7 @@ use argon2::{
     password_hash::{PasswordHash, PasswordVerifier},
 };
 
+/// Implements crypt argon2.
 pub fn crypt_argon2(key: &str, setting: &str) -> Option<String> {
     let hash = PasswordHash::new(setting).ok()?;
     let argon2 = Argon2::default();

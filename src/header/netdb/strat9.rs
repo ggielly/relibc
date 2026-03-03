@@ -6,6 +6,7 @@ use crate::{
 };
 use alloc::string::String;
 
+/// Returns get dns server.
 pub fn get_dns_server() -> Result<String, Errno> {
     // In Strat9-OS, DNS configuration might be handled differently
     // For now, we'll use a similar approach to Linux but this could be

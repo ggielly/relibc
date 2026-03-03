@@ -11,6 +11,7 @@ use super::libredox::RawResult;
 use syscall::{EINVAL, Error, Result};
 
 #[unsafe(no_mangle)]
+/// Implements redox event queue create v1.
 pub unsafe extern "C" fn redox_event_queue_create_v1(flags: u32) -> RawResult {
     Error::mux((|| {
         if flags != 0 {
@@ -20,6 +21,7 @@ pub unsafe extern "C" fn redox_event_queue_create_v1(flags: u32) -> RawResult {
     })())
 }
 #[unsafe(no_mangle)]
+/// Implements redox event queue get events v1.
 pub unsafe extern "C" fn redox_event_queue_get_events_v1(
     queue: usize,
     buf: *mut event::raw::RawEventV1,
@@ -51,6 +53,7 @@ pub unsafe extern "C" fn redox_event_queue_get_events_v1(
     })())
 }
 #[unsafe(no_mangle)]
+/// Implements redox event queue ctl v1.
 pub unsafe extern "C" fn redox_event_queue_ctl_v1(
     queue: usize,
     fd: usize,
@@ -77,6 +80,7 @@ pub unsafe extern "C" fn redox_event_queue_ctl_v1(
     })())
 }
 #[unsafe(no_mangle)]
+/// Implements redox event queue destroy v1.
 pub unsafe extern "C" fn redox_event_queue_destroy_v1(queue: usize) -> RawResult {
     Error::mux(syscall::close(queue))
 }

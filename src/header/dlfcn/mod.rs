@@ -34,6 +34,7 @@ static ERROR_NOT_SUPPORTED: &core::ffi::CStr = c"dlfcn not supported";
 #[thread_local]
 static ERROR: AtomicUsize = AtomicUsize::new(0);
 
+/// Sets set last error.
 fn set_last_error(error: DlError) {
     ERROR.store(error.repr().as_ptr() as usize, Ordering::SeqCst);
 }
@@ -194,4 +195,5 @@ pub extern "C" fn dlerror() -> *mut c_char {
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen stupid alias dlinfo for dladdr.
 pub unsafe extern "C" fn cbindgen_stupid_alias_dlinfo_for_dladdr(_: Dl_info) {}

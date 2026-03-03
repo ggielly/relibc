@@ -28,6 +28,7 @@ pub struct ifaddrs {
 }
 
 #[unsafe(no_mangle)]
+/// Implements freeifaddrs.
 pub unsafe extern "C" fn freeifaddrs(mut ifa: *mut ifaddrs) {
     while !ifa.is_null() {
         let next = unsafe { (*ifa).ifa_next };
@@ -37,6 +38,7 @@ pub unsafe extern "C" fn freeifaddrs(mut ifa: *mut ifaddrs) {
 }
 
 #[unsafe(no_mangle)]
+/// Returns getifaddrs.
 pub unsafe extern "C" fn getifaddrs(ifap: *mut *mut ifaddrs) -> c_int {
     //TODO: implement getifaddrs
     platform::ERRNO.set(errno::ENOSYS);

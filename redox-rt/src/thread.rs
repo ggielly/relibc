@@ -51,6 +51,10 @@ pub unsafe fn rlct_clone_impl(stack: *mut usize, tcb: &RtTcb) -> Result<usize> {
     Ok(fd)
 }
 
+/// Implements exit this thread.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn exit_this_thread(stack_base: *mut (), stack_size: usize) -> ! {
     let _guard = tmp_disable_signals();
 

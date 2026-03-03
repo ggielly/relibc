@@ -8,6 +8,7 @@ use crate::{header::errno::STR_ERROR, platform::types::c_int};
 pub struct Errno(pub c_int);
 
 impl Errno {
+    /// Implements sync.
     pub fn sync(self) -> Self {
         crate::platform::ERRNO.set(self.0);
         self
@@ -19,6 +20,7 @@ pub type Result<T, E = Errno> = core::result::Result<T, E>;
 #[cfg(target_os = "redox")]
 impl From<syscall::Error> for Errno {
     #[inline]
+    /// Implements from.
     fn from(value: syscall::Error) -> Self {
         Errno(value.errno)
     }
@@ -26,6 +28,7 @@ impl From<syscall::Error> for Errno {
 #[cfg(target_os = "redox")]
 impl From<Errno> for syscall::Error {
     #[inline]
+    /// Implements from.
     fn from(value: Errno) -> Self {
         syscall::Error::new(value.0)
     }
@@ -33,6 +36,7 @@ impl From<Errno> for syscall::Error {
 
 impl From<Errno> for crate::io::Error {
     #[inline]
+    /// Implements from.
     fn from(Errno(errno): Errno) -> Self {
         Self::from_raw_os_error(errno)
     }
@@ -41,6 +45,7 @@ impl From<Errno> for crate::io::Error {
 // TODO: core::error::Error
 
 impl core::fmt::Display for Errno {
+    /// Implements fmt.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match usize::try_from(self.0).ok().and_then(|i| STR_ERROR.get(i)) {
             Some(desc) => write!(f, "{desc}"),
@@ -50,9 +55,11 @@ impl core::fmt::Display for Errno {
 }
 
 pub trait ResultExt<T> {
+    /// Implements or minus one errno.
     fn or_minus_one_errno(self) -> T;
 }
 impl<T: From<i8>> ResultExt<T> for Result<T, Errno> {
+    /// Implements or minus one errno.
     fn or_minus_one_errno(self) -> T {
         match self {
             Self::Ok(v) => v,
@@ -64,9 +71,11 @@ impl<T: From<i8>> ResultExt<T> for Result<T, Errno> {
     }
 }
 pub trait ResultExtPtrMut<T> {
+    /// Implements or errno null mut.
     fn or_errno_null_mut(self) -> *mut T;
 }
 impl<T> ResultExtPtrMut<T> for Result<*mut T, Errno> {
+    /// Implements or errno null mut.
     fn or_errno_null_mut(self) -> *mut T {
         match self {
             Self::Ok(ptr) => ptr,
@@ -78,6 +87,7 @@ impl<T> ResultExtPtrMut<T> for Result<*mut T, Errno> {
     }
 }
 impl<T> ResultExtPtrMut<T> for Result<Box<T>, Errno> {
+    /// Implements or errno null mut.
     fn or_errno_null_mut(self) -> *mut T {
         match self {
             Self::Ok(ptr) => Box::into_raw(ptr),

@@ -45,6 +45,7 @@ const UTC_STR: &core::ffi::CStr = c"UTC";
 
 #[cfg(target_os = "redox")]
 impl<'a> From<&'a timespec> for syscall::TimeSpec {
+    /// Implements from.
     fn from(tp: &timespec) -> Self {
         Self {
             tv_sec: tp.tv_sec as _,
@@ -240,6 +241,7 @@ pub extern "C" fn clock() -> clock_t {
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/clock_getcpuclockid.html>.
 // #[unsafe(no_mangle)]
+/// Implements clock getcpuclockid.
 pub extern "C" fn clock_getcpuclockid(pid: pid_t, clock_id: *mut clockid_t) -> c_int {
     unimplemented!();
 }
@@ -262,6 +264,7 @@ pub unsafe extern "C" fn clock_gettime(clock_id: clockid_t, tp: *mut timespec) -
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/clock_nanosleep.html>.
 // #[unsafe(no_mangle)]
+/// Implements clock nanosleep.
 pub extern "C" fn clock_nanosleep(
     clock_id: clockid_t,
     flags: c_int,
@@ -312,6 +315,7 @@ pub unsafe extern "C" fn difftime(time1: time_t, time0: time_t) -> c_double {
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/getdate.html>.
 // #[unsafe(no_mangle)]
+/// Returns getdate.
 pub unsafe extern "C" fn getdate(string: *const c_char) -> *const tm {
     unimplemented!();
 }
@@ -514,6 +518,7 @@ pub unsafe extern "C" fn timer_delete(timerid: timer_t) -> c_int {
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/timer_getoverrun.html>.
 // #[unsafe(no_mangle)]
+/// Implements timer getoverrun.
 pub extern "C" fn timer_getoverrun(timerid: timer_t) -> c_int {
     unimplemented!();
 }
@@ -612,6 +617,7 @@ fn convert_tm_generic<Tz: TimeZone>(tz: &Tz, tm_val: &tm) -> Option<DateTime<Tz>
     }
 }
 
+/// Implements clear timezone.
 fn clear_timezone(guard: &mut MutexGuard<'_, (Option<CString>, Option<CString>)>) {
     guard.0 = None;
     guard.1 = None;
@@ -669,11 +675,13 @@ fn get_current_time_zone<'a>() -> &'a str {
 }
 
 #[inline(always)]
+/// Implements time zone.
 fn time_zone() -> Tz {
     get_current_time_zone().parse().unwrap_or(Tz::UTC)
 }
 
 #[inline(always)]
+/// Implements now.
 fn now() -> NaiveDateTime {
     let mut now = timespec::default();
     if Sys::clock_gettime(CLOCK_REALTIME, Out::from_mut(&mut now)).is_ok() {}; // TODO what to do if Err?
@@ -681,6 +689,7 @@ fn now() -> NaiveDateTime {
 }
 
 #[inline(always)]
+/// Returns get localtime.
 fn get_localtime(clock: time_t, t: *mut tm) -> (Option<DateTime<Tz>>, Option<DateTime<Tz>>) {
     let tz = time_zone();
 
@@ -696,6 +705,10 @@ fn get_localtime(clock: time_t, t: *mut tm) -> (Option<DateTime<Tz>>, Option<Dat
     (std_time, dst_time)
 }
 
+/// Implements datetime to tm.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn datetime_to_tm(local_time: &DateTime<Tz>) -> tm {
     let tz = local_time.timezone().name();
     let tz = tz.strip_prefix("Etc/").unwrap_or(tz);
@@ -728,6 +741,10 @@ unsafe fn datetime_to_tm(local_time: &DateTime<Tz>) -> tm {
     t
 }
 
+/// Sets set timezone.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn set_timezone(
     guard: &mut MutexGuard<'_, (Option<CString>, Option<CString>)>,
     std: &DateTime<Tz>,
@@ -762,6 +779,7 @@ unsafe fn set_timezone(
 }
 
 #[inline(always)]
+/// Returns get offset.
 pub const fn get_offset(off: c_long) -> Option<FixedOffset> {
     if off < 0 {
         FixedOffset::west_opt(off as _)
@@ -770,6 +788,7 @@ pub const fn get_offset(off: c_long) -> Option<FixedOffset> {
     }
 }
 
+/// Implements blank tm.
 const fn blank_tm() -> tm {
     tm {
         tm_year: 0,
@@ -786,6 +805,7 @@ const fn blank_tm() -> tm {
     }
 }
 
+/// Implements timespec realtime to monotonic.
 pub(crate) fn timespec_realtime_to_monotonic(abstime: timespec) -> Result<timespec, Errno> {
     let mut realtime = timespec::default();
     unsafe { clock_gettime(CLOCK_REALTIME, &raw mut realtime) };

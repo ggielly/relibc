@@ -22,12 +22,14 @@ impl<T> Mutex<T> {
     /// Represents a waiting [Mutex].
     pub const WAITING: u32 = 2;
 
+    /// Creates a new instance.
     pub const fn new(t: T) -> Self {
         Self {
             lockword: AtomicU32::new(0),
             inner: UnsafeCell::new(t),
         }
     }
+    /// Implements lock.
     pub fn lock(&self) -> MutexGuard<'_, T> {
         while self
             .lockword
@@ -50,16 +52,19 @@ pub struct MutexGuard<'l, T> {
 impl<T> Deref for MutexGuard<'_, T> {
     type Target = T;
 
+    /// Implements deref.
     fn deref(&self) -> &T {
         unsafe { &*self.lock.inner.get() }
     }
 }
 impl<T> DerefMut for MutexGuard<'_, T> {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.lock.inner.get() }
     }
 }
 impl<T> Drop for MutexGuard<'_, T> {
+    /// Implements drop.
     fn drop(&mut self) {
         self.lock
             .lockword

@@ -12,6 +12,7 @@ unsafe impl<T: Send> Send for ReentrantMutex {}
 unsafe impl<T: Send> Sync for ReentrantMutex {}
 
 impl<T> ReentrantMutex<T> {
+    /// Creates a new instance.
     pub const fn new(context: T) -> Self {
         Self {
             lock: AtomicLock::new(UNLOCKED),

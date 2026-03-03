@@ -38,6 +38,7 @@ pub fn normalize_scheme_rooted_path<'a>(path: &'a str) -> Option<(bool, String)>
     Some((false, scheme_rooted_path(&canonical.to_string()).ok()?))
 }
 
+/// Implements partially canonical.
 fn partially_canonical(path: &str) -> Option<String> {
     let mut stack = Vec::new();
     let mut paths_to_check = BTreeSet::new();
@@ -85,6 +86,7 @@ fn partially_canonical(path: &str) -> Option<String> {
 
 // POSIX states chdir is both thread-safe and signal-safe. Thus we need to synchronize access to CWD, but at the
 // same time forbid signal handlers from running in the meantime, to avoid reentrant deadlock.
+/// Implements chdir.
 pub fn chdir(path: &str) -> Result<()> {
     let _siglock = tmp_disable_signals();
     let mut cwd_guard = CWD.write();
@@ -128,6 +130,7 @@ pub fn chdir(path: &str) -> Result<()> {
     Ok(())
 }
 
+/// Implements fchdir.
 pub fn fchdir(fd: c_int) -> Result<()> {
     let mut buf = [0_u8; limits::PATH_MAX];
     let res = Sys::fpath(fd, &mut buf)?;
@@ -147,6 +150,7 @@ pub fn fchdir(fd: c_int) -> Result<()> {
 }
 
 // getcwd is similarly both thread-safe and signal-safe.
+/// Returns getcwd.
 pub fn getcwd(mut buf: Out<[u8]>) -> Result<usize> {
     let _siglock = tmp_disable_signals();
     let guard = CWD.read();
@@ -164,6 +168,7 @@ pub fn getcwd(mut buf: Out<[u8]>) -> Result<usize> {
 }
 
 // Get Cwd object
+/// Implements current dir.
 pub fn current_dir() -> Result<ReadGuard<'static, Option<Cwd>>> {
     let _siglock = tmp_disable_signals();
     let guard = CWD.read();
@@ -175,6 +180,7 @@ pub fn current_dir() -> Result<ReadGuard<'static, Option<Cwd>>> {
     Ok(guard)
 }
 
+/// Implements scheme rooted path.
 fn scheme_rooted_path(path: &str) -> Result<String> {
     let standard_scheme = path == "/scheme" || path.starts_with("/scheme/");
     let legacy_scheme = path
@@ -198,11 +204,13 @@ fn scheme_rooted_path(path: &str) -> Result<String> {
 }
 
 // TODO: How much of this logic should be in redox-path?
+/// Implements canonicalize with cwd internal.
 fn canonicalize_with_cwd_internal(cwd: Option<&str>, path: &str) -> Result<String> {
     let path = canonicalize_using_cwd(cwd, path).ok_or(Error::new(ENOENT))?;
     scheme_rooted_path(&path)
 }
 
+/// Implements canonicalize.
 pub fn canonicalize(path: &str) -> Result<String> {
     let _siglock = tmp_disable_signals();
     let cwd_guard = CWD.read();
@@ -217,16 +225,19 @@ pub struct Cwd {
 // TODO: arraystring?
 static CWD: RwLock<Option<Cwd>> = RwLock::new(None);
 
+/// Sets set cwd manual.
 pub fn set_cwd_manual(path: Box<str>, fd: FdGuardUpper) {
     let _siglock = tmp_disable_signals();
     *CWD.write() = Some(Cwd { path, fd });
 }
 
+/// Implements clone cwd.
 pub fn clone_cwd() -> Option<Box<str>> {
     let _siglock = tmp_disable_signals();
     CWD.read().as_ref().map(|cwd| cwd.path.clone())
 }
 
+/// Implements open absolute.
 fn open_absolute(path: &str, flags: usize) -> Result<usize> {
     if path.starts_with(libcscheme::LIBC_SCHEME) {
         libcscheme::open(path, flags)
@@ -235,6 +246,7 @@ fn open_absolute(path: &str, flags: usize) -> Result<usize> {
     }
 }
 
+/// Implements link target.
 fn link_target(fd: FdGuard) -> Result<String> {
     let mut resolve_buf = [0_u8; limits::PATH_MAX];
     let count = fd.read(&mut resolve_buf)?;
@@ -249,6 +261,7 @@ fn link_target(fd: FdGuard) -> Result<String> {
         .map(|s| s.to_string())
 }
 
+/// Implements read link content.
 fn read_link_content(path: &str, is_relative: bool) -> Result<String> {
     let resolve_flags = O_CLOEXEC | O_SYMLINK | O_RDONLY;
 
@@ -265,12 +278,14 @@ fn read_link_content(path: &str, is_relative: bool) -> Result<String> {
     link_target(fd)
 }
 
+/// Implements calc next abs path.
 fn calc_next_abs_path(current_abs: &str, link_target: &str) -> Result<String> {
     let parent = get_parent_path(current_abs).ok_or(Error::new(ENOENT))?;
 
     canonicalize_using_cwd(Some(&parent), link_target).ok_or(Error::new(ENOENT))
 }
 
+/// Implements resolve sym links.
 fn resolve_sym_links(mut current_path_string: String, flags: usize) -> Result<usize> {
     // TODO: SYMLOOP_MAX
     const MAX_LEVEL: usize = 64;
@@ -291,6 +306,7 @@ fn resolve_sym_links(mut current_path_string: String, flags: usize) -> Result<us
 }
 
 // TODO: Move to redox-rt, or maybe part of it?
+/// Implements openat.
 pub fn openat(dirfd: c_int, path: &str, flags: usize) -> Result<usize> {
     if path.is_empty() && flags as i32 & fcntl::AT_EMPTY_PATH != fcntl::AT_EMPTY_PATH {
         return Err(Error::new(ENOENT));
@@ -344,6 +360,7 @@ pub fn openat(dirfd: c_int, path: &str, flags: usize) -> Result<usize> {
 }
 
 // TODO: Move to redox-rt, or maybe part of it?
+/// Implements open.
 pub fn open(path: &str, flags: usize) -> Result<usize> {
     let _siglock = tmp_disable_signals();
     if path == "" {
@@ -384,8 +401,10 @@ pub fn open(path: &str, flags: usize) -> Result<usize> {
     resolve_sym_links(current_path_string, flags)
 }
 
+/// Returns get parent path.
 fn get_parent_path(path: &str) -> Option<String> {
     let path = path.strip_suffix('/').unwrap_or(path);
+    /// Implements parent opt.
     fn parent_opt(path: &str) -> Option<&str> {
         path.rfind('/').map(|index| {
             if index == 0 {
@@ -409,6 +428,7 @@ fn get_parent_path(path: &str) -> Option<String> {
     }
 }
 
+/// Implements dir path and fd path.
 pub fn dir_path_and_fd_path(socket_path: &str) -> Result<(String, String)> {
     let _siglock = tmp_disable_signals();
     let cwd_guard = CWD.read();
@@ -436,6 +456,7 @@ pub fn dir_path_and_fd_path(socket_path: &str) -> Result<(String, String)> {
 pub struct FileLock(c_int);
 
 impl FileLock {
+    /// Implements lock.
     pub fn lock(fd: c_int, op: c_int) -> Result<Self> {
         if op & sys_file::LOCK_SH | sys_file::LOCK_EX == 0 {
             return Err(Error::new(EINVAL));
@@ -445,12 +466,14 @@ impl FileLock {
         Ok(Self(fd))
     }
 
+    /// Implements unlock.
     pub fn unlock(self) -> Result<()> {
         Sys::flock(self.0, sys_file::LOCK_UN).map_err(Into::into)
     }
 }
 
 impl Drop for FileLock {
+    /// Implements drop.
     fn drop(&mut self) {
         let fd = self.0;
         self.0 = -1;

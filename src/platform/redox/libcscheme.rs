@@ -24,6 +24,7 @@ macro_rules! env_str {
     };
 }
 
+/// Implements open.
 pub fn open(path: &str, flags: usize) -> Result<usize> {
     assert!(path.starts_with(LIBC_SCHEME));
 

@@ -90,6 +90,7 @@ pub(crate) struct LocaleData {
 unsafe impl Sync for LocaleData {}
 
 impl LocaleData {
+    /// Creates a new instance.
     pub fn new(name: CString, defs: PosixLocaleDef) -> Box<Self> {
         let mut data = Box::new(LocaleData {
             name,
@@ -125,10 +126,12 @@ impl LocaleData {
         data
     }
 
+    /// Implements posix.
     pub fn posix() -> Box<Self> {
         LocaleData::new(CString::from_str("C").unwrap(), PosixLocaleDef::default())
     }
 
+    /// Implements update lconv pointers.
     fn update_lconv_pointers(&mut self) {
         self.lconv.decimal_point = self.decimal_point.as_ptr().cast_mut();
         self.lconv.thousands_sep = self.thousands_sep.as_ptr().cast_mut();
@@ -142,6 +145,7 @@ impl LocaleData {
         self.lconv.negative_sign = self.negative_sign.as_ptr().cast_mut();
     }
 
+    /// Implements copy category.
     pub fn copy_category(&mut self, other: &Self, category: c_int) {
         match category {
             LC_NUMERIC => {
@@ -181,22 +185,26 @@ impl LocaleData {
         self.update_lconv_pointers();
     }
 
+    /// Implements to cstring.
     fn to_cstring(opt: Option<CString>) -> CString {
         opt.unwrap_or_else(|| CString::new("").unwrap())
     }
 
+    /// Implements to grouping char.
     fn to_grouping_char(opt: Vec<Option<c_char>>) -> Vec<c_char> {
         let mut v: Vec<c_char> = opt.into_iter().map(Self::to_char).collect();
         v.push(0);
         v
     }
 
+    /// Implements to char.
     fn to_char(opt: Option<c_char>) -> c_char {
         opt.unwrap_or(c_char::MAX)
     }
 }
 
 impl Clone for LocaleData {
+    /// Implements clone.
     fn clone(&self) -> Self {
         let mut data = Self {
             name: self.name.clone(),
@@ -225,6 +233,7 @@ pub(crate) struct GlobalLocaleData {
 }
 
 impl GlobalLocaleData {
+    /// Creates a new instance.
     pub fn new() -> Box<Self> {
         let data = LocaleData::posix();
         let names = [
@@ -241,9 +250,11 @@ impl GlobalLocaleData {
         r
     }
 
+    /// Returns get name.
     pub fn get_name(&self, category: i32) -> Option<&CString> {
         self.names.get(category as usize)
     }
+    /// Sets set name.
     pub fn set_name(&mut self, category: i32, name: CString) -> Option<&CString> {
         if self.names.get(category as usize).is_some() {
             self.names[category as usize] = name;
@@ -284,6 +295,7 @@ pub(crate) struct PosixLocaleDef {
 }
 impl PosixLocaleDef {
     //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap07.html>
+    /// Implements parse.
     pub fn parse(content: &str) -> Self {
         let mut locale = PosixLocaleDef::default();
 

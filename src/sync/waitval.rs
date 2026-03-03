@@ -16,6 +16,7 @@ unsafe impl<T: Send + Sync> Send for Waitval<T> {}
 unsafe impl<T: Send + Sync> Sync for Waitval<T> {}
 
 impl<T> Waitval<T> {
+    /// Creates a new instance.
     pub const fn new() -> Self {
         Self {
             state: AtomicUint::new(0),
@@ -25,12 +26,17 @@ impl<T> Waitval<T> {
 
     // SAFETY: Caller must ensure both (1) that the value has not yet been initialized, and (2)
     // that this is never run by more than one thread simultaneously.
+    /// Implements post.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn post(&self, value: T) {
         unsafe { self.value.get().write(MaybeUninit::new(value)) };
         self.state.store(1, Ordering::Release);
         crate::sync::futex_wake(&self.state, i32::MAX);
     }
 
+    /// Implements wait.
     pub fn wait(&self) -> &T {
         while self.state.load(Ordering::Acquire) == 0 {
             crate::sync::futex_wait(&self.state, 0, None);

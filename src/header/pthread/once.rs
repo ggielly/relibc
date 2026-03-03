@@ -3,6 +3,7 @@ use super::*;
 // PTHREAD_ONCE_INIT
 
 #[unsafe(no_mangle)]
+/// Implements pthread once.
 pub unsafe extern "C" fn pthread_once(
     once: *mut pthread_once_t,
     constructor: extern "C" fn(),

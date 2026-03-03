@@ -163,6 +163,7 @@ pub const _SC_SIGSTKSZ: c_int = 250;
 const _POSIX_VERSION: c_long = 200809;
 const _XOPEN_VERSION: c_long = 700;
 
+/// Implements sysconf impl.
 pub(super) fn sysconf_impl(name: c_int) -> c_long {
     // Values adapted for Strat9-OS
     match name {
@@ -195,7 +196,7 @@ pub(super) fn sysconf_impl(name: c_int) -> c_long {
         _SC_MQ_OPEN_MAX => -1,
         _SC_MQ_PRIO_MAX => -1,
         _SC_VERSION => _POSIX_VERSION,
-        _SC_PAGE_SIZE => platform::Sys::getpagesize() as c_long,
+        _SC_PAGE_SIZE => 4096,
         _SC_RTSIG_MAX => (signal::SIGRTMAX - signal::SIGRTMIN)
             .try_into()
             .unwrap_or(-1),

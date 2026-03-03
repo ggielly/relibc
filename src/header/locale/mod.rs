@@ -166,6 +166,7 @@ pub unsafe extern "C" fn duplocale(loc: locale_t) -> locale_t {
     }
 }
 
+/// Implements load locale file.
 pub(crate) fn load_locale_file(name: &str) -> Result<Box<LocaleData>, Errno> {
     let mut path = String::from("/usr/share/i18n/locales/");
     path.push_str(name);

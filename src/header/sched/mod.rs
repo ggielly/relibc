@@ -28,36 +28,42 @@ pub const SCHED_OTHER: c_int = 2;
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sched_get_priority_max.html>.
 // #[unsafe(no_mangle)]
+/// Implements sched get priority max.
 pub extern "C" fn sched_get_priority_max(policy: c_int) -> c_int {
     todo!()
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sched_get_priority_max.html>.
 // #[unsafe(no_mangle)]
+/// Implements sched get priority min.
 pub extern "C" fn sched_get_priority_min(policy: c_int) -> c_int {
     todo!()
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sched_getparam.html>.
 // #[unsafe(no_mangle)]
+/// Implements sched getparam.
 pub unsafe extern "C" fn sched_getparam(pid: pid_t, param: *mut sched_param) -> c_int {
     todo!()
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sched_rr_get_interval.html>.
 // #[unsafe(no_mangle)]
+/// Implements sched rr get interval.
 pub extern "C" fn sched_rr_get_interval(pid: pid_t, time: *const timespec) -> c_int {
     todo!()
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sched_setparam.html>.
 // #[unsafe(no_mangle)]
+/// Implements sched setparam.
 pub unsafe extern "C" fn sched_setparam(pid: pid_t, param: *const sched_param) -> c_int {
     todo!()
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sched_setscheduler.html>.
 // #[unsafe(no_mangle)]
+/// Implements sched setscheduler.
 pub extern "C" fn sched_setscheduler(
     pid: pid_t,
     policy: c_int,
@@ -73,4 +79,5 @@ pub extern "C" fn sched_yield() -> c_int {
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen stupid struct user for sched param.
 pub unsafe extern "C" fn cbindgen_stupid_struct_user_for_sched_param(_: sched_param) {}

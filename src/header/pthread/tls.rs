@@ -30,6 +30,7 @@ static KEYS: Mutex<BTreeMap<pthread_key_t, Dtor>> = Mutex::new(BTreeMap::new());
 static NEXTKEY: AtomicUsize = AtomicUsize::new(1);
 
 #[unsafe(no_mangle)]
+/// Implements pthread getspecific.
 pub unsafe extern "C" fn pthread_getspecific(key: pthread_key_t) -> *mut c_void {
     // According to POSIX (issue 8): Calling [`pthread_getspecific`] with a key
     // that has been deleted with [`pthread_key_delete`] or not obtained from
@@ -45,6 +46,7 @@ pub unsafe extern "C" fn pthread_getspecific(key: pthread_key_t) -> *mut c_void 
 }
 
 #[unsafe(no_mangle)]
+/// Implements pthread setspecific.
 pub unsafe extern "C" fn pthread_setspecific(key: pthread_key_t, value: *const c_void) -> c_int {
     if !KEYS.lock().contains_key(&key) {
         // We don't have to return anything, but it's not less expensive to ignore it.
@@ -64,6 +66,7 @@ pub unsafe extern "C" fn pthread_setspecific(key: pthread_key_t, value: *const c
 }
 
 #[unsafe(no_mangle)]
+/// Implements pthread key create.
 pub unsafe extern "C" fn pthread_key_create(
     key_ptr: *mut pthread_key_t,
     destructor: Dtor,
@@ -81,6 +84,7 @@ pub unsafe extern "C" fn pthread_key_create(
 }
 
 #[unsafe(no_mangle)]
+/// Implements pthread key delete.
 pub unsafe extern "C" fn pthread_key_delete(key: pthread_key_t) -> c_int {
     if KEYS.lock().remove(&key).is_none() || VALUES.borrow_mut().remove(&key).is_none() {
         // We don't have to return anything, but it's not less expensive to ignore it.
@@ -90,6 +94,10 @@ pub unsafe extern "C" fn pthread_key_delete(key: pthread_key_t) -> c_int {
     0
 }
 
+/// Implements run all destructors.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(crate) unsafe fn run_all_destructors() {
     for _ in 0..PTHREAD_DESTRUCTOR_ITERATIONS {
         let mut any_run = false;

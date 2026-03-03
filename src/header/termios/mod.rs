@@ -166,6 +166,14 @@ pub unsafe extern "C" fn cfsetispeed(termios_p: *mut termios, speed: speed_t) ->
     -1
 }
 
+#[cfg(target_os = "strat9")]
+#[unsafe(no_mangle)]
+/// Implements cfsetispeed.
+pub unsafe extern "C" fn cfsetispeed(_termios_p: *mut termios, _speed: speed_t) -> c_int {
+    platform::ERRNO.set(errno::EINVAL);
+    -1
+}
+
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/cfsetospeed.html>.
 #[cfg(target_os = "linux")]
 #[unsafe(no_mangle)]
@@ -187,6 +195,14 @@ pub unsafe extern "C" fn cfsetospeed(termios_p: *mut termios, speed: speed_t) ->
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn cfsetospeed(termios_p: *mut termios, speed: speed_t) -> c_int {
     //TODO
+    platform::ERRNO.set(errno::EINVAL);
+    -1
+}
+
+#[cfg(target_os = "strat9")]
+#[unsafe(no_mangle)]
+/// Implements cfsetospeed.
+pub unsafe extern "C" fn cfsetospeed(_termios_p: *mut termios, _speed: speed_t) -> c_int {
     platform::ERRNO.set(errno::EINVAL);
     -1
 }

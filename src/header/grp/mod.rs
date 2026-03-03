@@ -34,6 +34,9 @@ const SEPARATOR: char = ':';
 #[cfg(target_os = "redox")]
 const SEPARATOR: char = ';';
 
+#[cfg(target_os = "strat9")]
+const SEPARATOR: char = ':';
+
 const GROUP_FILE: &core::ffi::CStr = c"/etc/group";
 
 #[derive(Clone, Copy, Debug)]
@@ -51,6 +54,7 @@ enum MaybeAllocated {
 impl Deref for MaybeAllocated {
     type Target = [u8];
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         match self {
             MaybeAllocated::Owned(boxed) => boxed,
@@ -61,6 +65,7 @@ impl Deref for MaybeAllocated {
     }
 }
 impl DerefMut for MaybeAllocated {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             MaybeAllocated::Owned(boxed) => boxed,
@@ -109,6 +114,7 @@ struct OwnedGrp {
 }
 
 impl OwnedGrp {
+    /// Implements into global.
     fn into_global(self) -> *mut group {
         unsafe {
             GROUP_BUF = Some(self.buffer);
@@ -118,6 +124,7 @@ impl OwnedGrp {
     }
 }
 
+/// Implements split.
 fn split(buf: &mut [u8]) -> Option<group> {
     let gr_gid = match buf[0..mem::size_of::<gid_t>()].try_into() {
         Ok(buf) => gid_t::from_ne_bytes(buf),
@@ -153,6 +160,7 @@ fn split(buf: &mut [u8]) -> Option<group> {
     })
 }
 
+/// Implements parse grp.
 fn parse_grp(line: String, destbuf: Option<DestBuffer>) -> Result<OwnedGrp, Error> {
     let buffer = line.to_owned().into_bytes();
 

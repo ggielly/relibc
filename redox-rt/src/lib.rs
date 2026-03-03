@@ -57,9 +57,11 @@ pub struct RtTcb {
     pub thr_fd: UnsafeCell<Option<FdGuardUpper>>,
 }
 impl RtTcb {
+    /// Implements current.
     pub fn current() -> &'static Self {
         unsafe { &Tcb::current().unwrap().os_specific }
     }
+    /// Implements thread fd.
     pub fn thread_fd(&self) -> &FdGuardUpper {
         unsafe { (&*self.thr_fd.get()).as_ref().unwrap() }
     }
@@ -180,11 +182,16 @@ pub unsafe fn initialize_freestanding(this_thr_fd: FdGuardUpper) -> &'static FdG
 
     (*page.os_specific.thr_fd.get()).as_ref().unwrap()
 }
+/// Implements read proc meta.
 pub(crate) fn read_proc_meta(proc: &FdGuardUpper) -> syscall::Result<ProcMeta> {
     let mut bytes = [0_u8; size_of::<ProcMeta>()];
     proc.read(&mut bytes)?;
     Ok(*plain::from_bytes::<ProcMeta>(&bytes).unwrap())
 }
+/// Implements initialize.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn initialize(
     #[cfg(feature = "proc")] proc_fd: FdGuardUpper,
     #[cfg(feature = "proc")] ns_fd: Option<FdGuardUpper>,
@@ -255,15 +262,18 @@ static DYNAMIC_PROC_INFO: Mutex<DynamicProcInfo> = Mutex::new(DynamicProcInfo {
 });
 
 #[inline]
+/// Implements static proc info.
 pub(crate) fn static_proc_info() -> &'static StaticProcInfo {
     unsafe { &*STATIC_PROC_INFO.get() }
 }
 #[inline]
+/// Implements current proc fd.
 pub fn current_proc_fd() -> &'static FdGuardUpper {
     let info = static_proc_info();
     info.proc_fd.as_ref().unwrap()
 }
 #[inline]
+/// Implements current namespace fd.
 pub fn current_namespace_fd() -> syscall::Result<usize> {
     DYNAMIC_PROC_INFO
         .lock()
@@ -277,6 +287,10 @@ struct ChildHookCommonArgs {
     new_proc_fd: Option<FdGuard>,
 }
 
+/// Implements child hook common.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn child_hook_common(args: ChildHookCommonArgs) {
     let new_thr_fd = args.new_thr_fd.to_upper().unwrap();
     let new_proc_fd = args.new_proc_fd.map(|x| x.to_upper().unwrap());

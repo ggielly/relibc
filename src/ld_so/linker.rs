@@ -92,6 +92,7 @@ struct MmapFile {
 }
 
 impl MmapFile {
+    /// Implements open.
     fn open(path: CStr, oflag: c_int) -> core::result::Result<Self, Errno> {
         let fd = Sys::open(path, oflag, 0 /* mode */)?;
         let mut stat = crate::header::sys_stat::stat::default();
@@ -112,12 +113,14 @@ impl MmapFile {
         Ok(Self { fd, ptr, size })
     }
 
+    /// Implements data.
     fn data(&self) -> &[u8] {
         unsafe { core::slice::from_raw_parts(self.ptr.cast::<u8>(), self.size) }
     }
 }
 
 impl Drop for MmapFile {
+    /// Implements drop.
     fn drop(&mut self) {
         unsafe {
             Sys::munmap(self.ptr, self.size).unwrap();
@@ -136,6 +139,7 @@ pub struct Symbol<'a> {
 }
 
 impl Symbol<'_> {
+    /// Implements as ptr.
     pub fn as_ptr(&self) -> *mut c_void {
         (self.base + self.value) as *mut c_void
     }
@@ -171,11 +175,13 @@ pub enum Scope {
 
 impl Scope {
     #[inline]
+    /// Implements global.
     const fn global() -> Self {
         Self::Global { objs: Vec::new() }
     }
 
     #[inline]
+    /// Implements local.
     const fn local() -> Self {
         Self::Local {
             owner: None,
@@ -183,6 +189,7 @@ impl Scope {
         }
     }
 
+    /// Sets set owner.
     fn set_owner(&mut self, obj: Weak<DSO>) {
         match self {
             Self::Global { .. } => panic!("attempted to set global scope owner"),
@@ -193,6 +200,7 @@ impl Scope {
         }
     }
 
+    /// Implements add.
     fn add(&mut self, target: &Arc<DSO>) {
         match self {
             Self::Global { objs } => {
@@ -266,6 +274,7 @@ impl Scope {
         .or(res)
     }
 
+    /// Implements copy into.
     fn copy_into(&self, other: &mut Self) {
         match (self, other) {
             (Self::Local { owner, objs }, Self::Global { objs: other_objs }) => {
@@ -279,6 +288,7 @@ impl Scope {
         }
     }
 
+    /// Implements debug.
     fn debug(&self) {
         match self {
             Self::Global { objs } => {
@@ -310,21 +320,25 @@ pub struct ObjectHandle(*const DSO);
 
 impl ObjectHandle {
     #[inline]
+    /// Creates a new instance.
     fn new(obj: Arc<DSO>) -> Self {
         Self(Arc::into_raw(obj))
     }
 
     #[inline]
+    /// Implements into inner.
     fn into_inner(self) -> Arc<DSO> {
         unsafe { Arc::from_raw(self.0) }
     }
 
     #[inline]
+    /// Implements as ptr.
     pub fn as_ptr(&self) -> *const c_void {
         self.0.cast()
     }
 
     #[inline]
+    /// Implements from ptr.
     pub fn from_ptr(ptr: *const c_void) -> Option<Self> {
         NonNull::new(ptr as *mut DSO).map(|ptr| Self(ptr.as_ptr()))
     }
@@ -332,6 +346,7 @@ impl ObjectHandle {
 
 impl AsRef<DSO> for ObjectHandle {
     #[inline]
+    /// Implements as ref.
     fn as_ref(&self) -> &DSO {
         unsafe { &*self.0 }
     }
@@ -358,6 +373,7 @@ pub struct Config {
 }
 
 impl Config {
+    /// Implements from env.
     pub fn from_env(env: &BTreeMap<String, String>) -> Self {
         let debug_flags = env
             .get("LD_DEBUG")
@@ -405,6 +421,7 @@ pub struct Linker {
 const ROOT_ID: usize = 1;
 
 impl Linker {
+    /// Creates a new instance.
     pub fn new(config: Config) -> Self {
         Self {
             config,
@@ -417,6 +434,7 @@ impl Linker {
         }
     }
 
+    /// Implements load program.
     pub fn load_program(&mut self, path: &str, base_addr: Option<usize>) -> Result<usize> {
         let dso = self.load_object(
             path,
@@ -433,6 +451,7 @@ impl Linker {
         Ok(dso.entry_point)
     }
 
+    /// Implements load library.
     pub fn load_library(
         &mut self,
         name: Option<&str>,
@@ -510,6 +529,7 @@ impl Linker {
         }
     }
 
+    /// Returns get sym.
     pub fn get_sym(&self, handle: Option<ObjectHandle>, name: &str) -> Option<*mut c_void> {
         let guard;
 
@@ -534,6 +554,7 @@ impl Linker {
         })
     }
 
+    /// Implements unload.
     pub fn unload(&mut self, handle: ObjectHandle) {
         let obj = handle.into_inner();
         if !obj.dlopened {
@@ -576,12 +597,14 @@ impl Linker {
         // obj is dropped here.
     }
 
+    /// Implements fini.
     pub fn fini(&self) {
         for obj in self.objects.values() {
             obj.run_fini();
         }
     }
 
+    /// Implements load object.
     fn load_object(
         &mut self,
         path: &str,
@@ -737,6 +760,7 @@ impl Linker {
         Ok(loaded_dso)
     }
 
+    /// Implements register object.
     fn register_object(&mut self, obj: Arc<DSO>) {
         self.name_to_object_id_map.insert(obj.name.clone(), obj.id);
         self.objects.insert(obj.id, obj);
@@ -879,6 +903,7 @@ impl Linker {
         Ok(obj)
     }
 
+    /// Implements search object.
     fn search_object(&self, name: &str, parent_runpath: &Option<String>) -> Result<String> {
         let debug = self.config.debug_flags.contains(DebugFlags::SEARCH);
         if debug {
@@ -921,6 +946,7 @@ impl Linker {
         Err(DlError::NotFound)
     }
 
+    /// Implements read file.
     fn read_file(&self, path: &str) -> Result<MmapFile> {
         let debug = self.config.debug_flags.contains(DebugFlags::SEARCH);
 
@@ -944,6 +970,7 @@ impl Linker {
         Ok(file)
     }
 
+    /// Implements run init.
     fn run_init(&self, obj: &DSO) {
         use crate::platform::{self, types::*};
 
@@ -959,6 +986,7 @@ impl Linker {
         obj.run_init();
     }
 
+    /// Implements scope debug.
     fn scope_debug(&self) {
         if self.config.debug_flags.contains(DebugFlags::SCOPES) {
             println!("[ld.so]: =========== SCOPES ==========");
@@ -981,6 +1009,7 @@ impl Linker {
 //
 // FIXME(andypython): 32-bit
 #[cfg(target_pointer_width = "64")]
+/// Implements plt resolve inner.
 extern "C" fn __plt_resolve_inner(obj: *const DSO, relocation_index: c_uint) -> *mut c_void {
     let obj = unsafe { &*obj };
     let obj_base = obj.mmap.as_ptr() as usize;
@@ -1021,6 +1050,7 @@ extern "C" fn __plt_resolve_inner(obj: *const DSO, relocation_index: c_uint) -> 
 }
 
 unsafe extern "C" {
+    /// Implements plt resolve trampoline.
     pub(super) fn __plt_resolve_trampoline() -> usize;
 }
 

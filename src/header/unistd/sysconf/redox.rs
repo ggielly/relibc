@@ -48,6 +48,7 @@ pub const _SC_SIGQUEUE_MAX: c_int = 190;
 pub const _SC_REALTIME_SIGNALS: c_int = 191;
 // } POSIX.1
 
+/// Implements sysconf impl.
 pub(super) fn sysconf_impl(name: c_int) -> c_long {
     //TODO: Real values
     match name {
@@ -80,6 +81,7 @@ pub(super) fn sysconf_impl(name: c_int) -> c_long {
     }
 }
 
+/// Returns get cpu count.
 pub fn get_cpu_count() -> Result<Option<c_long>, Errno> {
     let mut string = String::new();
     let mut file = File::open(c"/scheme/sys/cpu".into(), fcntl::O_RDONLY)?;
@@ -93,6 +95,7 @@ pub fn get_cpu_count() -> Result<Option<c_long>, Errno> {
         .and_then(|num_str| num_str.trim().parse::<c_long>().ok()))
 }
 
+/// Returns get mem stat.
 pub fn get_mem_stat() -> Result<sys_statvfs::statvfs, Errno> {
     let fd = Sys::open(c"/scheme/memory".into(), fcntl::O_PATH, 0)?;
     let mut buf = sys_statvfs::statvfs::default();

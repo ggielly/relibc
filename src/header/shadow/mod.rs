@@ -25,6 +25,9 @@ const SEPARATOR: char = ':';
 #[cfg(target_os = "redox")]
 const SEPARATOR: char = ';';
 
+#[cfg(target_os = "strat9")]
+const SEPARATOR: char = ':';
+
 const SHADOW_FILE: &core::ffi::CStr = c"/etc/shadow";
 
 #[derive(Clone, Copy, Debug)]
@@ -41,6 +44,7 @@ enum MaybeAllocated {
 impl Deref for MaybeAllocated {
     type Target = [u8];
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         match self {
             MaybeAllocated::Owned(boxed) => boxed,
@@ -51,6 +55,7 @@ impl Deref for MaybeAllocated {
     }
 }
 impl DerefMut for MaybeAllocated {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             MaybeAllocated::Owned(boxed) => boxed,
@@ -104,6 +109,7 @@ struct OwnedSpwd {
 }
 
 impl OwnedSpwd {
+    /// Implements into global.
     fn into_global(self) -> *mut spwd {
         unsafe {
             SHADOW_BUF = Some(self.buffer);
@@ -112,13 +118,16 @@ impl OwnedSpwd {
         }
     }
 }
+/// Implements to long.
 fn to_long(s: &str) -> c_long {
     c_long::from_str(s).unwrap_or(-1)
 }
+/// Implements to ulong.
 fn to_ulong(s: &str) -> c_ulong {
     c_ulong::from_str(s).unwrap_or(0)
 }
 
+/// Implements parse spwd.
 fn parse_spwd(line: String, destbuf: Option<DestBuffer>) -> Result<OwnedSpwd, Error> {
     let mut parts = line.split(SEPARATOR);
 
@@ -177,6 +186,7 @@ fn parse_spwd(line: String, destbuf: Option<DestBuffer>) -> Result<OwnedSpwd, Er
 }
 
 #[unsafe(no_mangle)]
+/// Returns getspnam.
 pub unsafe extern "C" fn getspnam(name: *const c_char) -> *mut spwd {
     let Ok(db) = File::open(SHADOW_FILE.into(), fcntl::O_RDONLY) else {
         return ptr::null_mut();
@@ -195,6 +205,7 @@ pub unsafe extern "C" fn getspnam(name: *const c_char) -> *mut spwd {
 }
 
 #[unsafe(no_mangle)]
+/// Returns getspnam r.
 pub unsafe extern "C" fn getspnam_r(
     name: *const c_char,
     result_buf: *mut spwd,
@@ -233,6 +244,7 @@ pub unsafe extern "C" fn getspnam_r(
 }
 
 #[unsafe(no_mangle)]
+/// Sets setspent.
 pub unsafe extern "C" fn setspent() {
     let line_reader = unsafe { &mut *LINE_READER.get() };
     if let Ok(db) = File::open(SHADOW_FILE.into(), fcntl::O_RDONLY) {
@@ -241,6 +253,7 @@ pub unsafe extern "C" fn setspent() {
 }
 
 #[unsafe(no_mangle)]
+/// Implements endspent.
 pub unsafe extern "C" fn endspent() {
     unsafe {
         *LINE_READER.get() = None;
@@ -248,6 +261,7 @@ pub unsafe extern "C" fn endspent() {
 }
 
 #[unsafe(no_mangle)]
+/// Returns getspent.
 pub unsafe extern "C" fn getspent() -> *mut spwd {
     let line_reader = unsafe { &mut *LINE_READER.get() };
     if line_reader.is_none() {

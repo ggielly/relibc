@@ -8,6 +8,7 @@ use alloc::{boxed::Box, vec::Vec};
 pub struct GlobalFile(UnsafeCell<FILE>);
 
 impl GlobalFile {
+    /// Creates a new instance.
     fn new(file: c_int, flags: c_int) -> Self {
         let file = File::new(file);
         let writer = Box::new(LineWriter::new(unsafe { file.get_ref() }));
@@ -31,6 +32,7 @@ impl GlobalFile {
             orientation: 0,
         }))
     }
+    /// Returns get.
     pub fn get(&self) -> *mut FILE {
         self.0.get()
     }
@@ -43,12 +45,15 @@ static DEFAULT_STDIN: Once<GlobalFile> = Once::new();
 static DEFAULT_STDOUT: Once<GlobalFile> = Once::new();
 static DEFAULT_STDERR: Once<GlobalFile> = Once::new();
 
+/// Implements default stdin.
 pub fn default_stdin() -> &'static GlobalFile {
     DEFAULT_STDIN.call_once(|| GlobalFile::new(0, constants::F_NOWR))
 }
+/// Implements default stdout.
 pub fn default_stdout() -> &'static GlobalFile {
     DEFAULT_STDOUT.call_once(|| GlobalFile::new(1, constants::F_NORD))
 }
+/// Implements default stderr.
 pub fn default_stderr() -> &'static GlobalFile {
     DEFAULT_STDERR.call_once(|| GlobalFile::new(2, constants::F_NORD))
 }

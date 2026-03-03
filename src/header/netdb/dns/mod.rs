@@ -24,6 +24,7 @@ pub struct Dns {
 }
 
 impl Dns {
+    /// Implements compile.
     pub fn compile(&self) -> Vec<u8> {
         let mut data = Vec::new();
 
@@ -58,6 +59,7 @@ impl Dns {
         data
     }
 
+    /// Implements parse.
     pub fn parse(data: &[u8]) -> Result<Self, String> {
         let name_ind = 0b1100_0000;
         let mut i = 0;

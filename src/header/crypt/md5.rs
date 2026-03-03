@@ -15,6 +15,7 @@ const MAP_MD5: [c_uchar; BLOCK_SIZE] = [12, 6, 0, 13, 7, 1, 14, 8, 2, 15, 9, 3, 
 
 const KEY_MAX: usize = 30000;
 
+/// Implements encode md5.
 fn encode_md5(source: &[c_uchar]) -> Option<[c_uchar; PW_SIZE_MD5]> {
     let mut transposed = [0; BLOCK_SIZE];
     for (i, &ti) in MAP_MD5.iter().enumerate() {

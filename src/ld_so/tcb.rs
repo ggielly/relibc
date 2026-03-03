@@ -224,6 +224,7 @@ impl Tcb {
         };
     }
 
+    /// Sets setup dtv.
     pub fn setup_dtv(&mut self, n: usize) {
         if self.dtv_ptr.is_null() {
             let mut dtv = vec![ptr::null_mut(); n];
@@ -260,6 +261,7 @@ impl Tcb {
         }
     }
 
+    /// Implements dtv mut.
     pub fn dtv_mut(&mut self) -> &'static mut [*mut u8] {
         if self.dtv_len != 0 {
             unsafe { slice::from_raw_parts_mut(self.dtv_ptr, self.dtv_len) }
@@ -327,7 +329,7 @@ impl Tcb {
     /// ```
     ///
     /// For x86_64, the ABI page is not used.
-    #[cfg(any(target_os = "linux", target_os = "redox"))]
+    #[cfg(any(target_os = "linux", target_os = "redox", target_os = "strat9"))]
     unsafe fn os_new(
         size: usize,
     ) -> Result<(&'static mut [u8], &'static mut [u8], &'static mut [u8]), DlError> {
@@ -347,7 +349,20 @@ impl Tcb {
         }
     }
 
+    #[cfg(all(target_os = "strat9", target_arch = "x86_64"))]
+    /// Implements os arch activate.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
+    unsafe fn os_arch_activate(_os: &(), tls_end: usize, _tls_len: usize) {
+        crate::strat9_syscall!(strat9_abi::syscall::SYS_ARCH_PRCTL, 0x1002usize, tls_end);
+    }
+
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    /// Implements os arch activate.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn os_arch_activate(_os: &(), tls_end: usize, tls_len: usize) {
         // Uses ABI page
         let abi_ptr = tls_end - tls_len - 16;
@@ -361,6 +376,10 @@ impl Tcb {
     }
 
     #[cfg(target_os = "redox")]
+    /// Implements os arch activate.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn os_arch_activate(
         os: &OsSpecific,
         tls_end: usize,
@@ -379,11 +398,13 @@ impl Tcb {
 impl Deref for Tcb {
     type Target = GenericTcb<OsSpecific>;
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         &self.generic
     }
 }
 impl DerefMut for Tcb {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.generic
     }

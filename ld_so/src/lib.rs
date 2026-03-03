@@ -118,6 +118,7 @@ _start:
 );
 
 #[unsafe(no_mangle)]
+/// Implements main.
 pub unsafe extern "C" fn main(_argc: isize, _argv: *const *const i8) -> usize {
     // LD
     0x1D
@@ -125,12 +126,17 @@ pub unsafe extern "C" fn main(_argc: isize, _argv: *const *const i8) -> usize {
 
 #[linkage = "weak"]
 #[unsafe(no_mangle)]
+/// Implements relibc panic.
 extern "C" fn relibc_panic(_pi: &::core::panic::PanicInfo) -> ! {
     loop {}
 }
 
 #[panic_handler]
 #[linkage = "weak"]
+/// Implements rust begin unwind.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn rust_begin_unwind(pi: &::core::panic::PanicInfo) -> ! {
     relibc_panic(pi)
 }

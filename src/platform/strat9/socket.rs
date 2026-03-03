@@ -1,60 +1,70 @@
-//! Socket implementation for Strat9-OS.
-//!
-//! This module implements the PalSocket trait for Strat9-OS.
-//! Sockets are not natively supported in the Strat9 microkernel,
-//! so these functions return ENOSYS.
-//!
-//! In the future, sockets will be implemented via IPC to the net-stack component.
-
-use super::super::{Pal, PalSocket, types::*};
+use super::super::{PalSocket, types::*};
 use crate::{
-    error::Result,
+    error::{Errno, Result},
     header::sys_socket::{msghdr, sockaddr, socklen_t},
 };
+use crate::strat9_syscall;
+const ENOSYS: c_int = 38;
+const EAFNOSUPPORT: c_int = 97;
+const AF_UNIX: c_int = 1;
+
+// TODO: Full BSD socket API requires kernel socket syscalls or
+// a /net/ scheme-based approach. Only socketpair(AF_UNIX) works
+// (backed by kernel pipes). recvfrom/sendto delegate to read/write.
 
 impl PalSocket for super::Sys {
+    // TODO: Requires kernel accept() or IPC to net-stack
+    /// Accept a pending connection on a listening socket.
     unsafe fn accept(
         _socket: c_int,
         _address: *mut sockaddr,
         _address_len: *mut socklen_t,
     ) -> Result<c_int> {
-        // Strat9 doesn't have native socket support
-        // TODO: Implement via IPC to net-stack component
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires kernel bind() or IPC to net-stack
+    /// Bind a socket to a local address.
     unsafe fn bind(
         _socket: c_int,
         _address: *const sockaddr,
         _address_len: socklen_t,
     ) -> Result<()> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires kernel connect() or IPC to net-stack
+    /// Connect a socket to a remote address.
     unsafe fn connect(
         _socket: c_int,
         _address: *const sockaddr,
         _address_len: socklen_t,
     ) -> Result<c_int> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires kernel socket metadata
+    /// Get the peer address of a connected socket.
     unsafe fn getpeername(
         _socket: c_int,
         _address: *mut sockaddr,
         _address_len: *mut socklen_t,
     ) -> Result<()> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires kernel socket metadata
+    /// Get the local address of a socket.
     unsafe fn getsockname(
         _socket: c_int,
         _address: *mut sockaddr,
         _address_len: *mut socklen_t,
     ) -> Result<()> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires kernel socket options tracking
+    /// Read a socket option value.
     unsafe fn getsockopt(
         _socket: c_int,
         _level: c_int,
@@ -62,43 +72,53 @@ impl PalSocket for super::Sys {
         _option_value: *mut c_void,
         _option_len: *mut socklen_t,
     ) -> Result<()> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires kernel listen queue
+    /// Mark a socket as passive for incoming connections.
     fn listen(_socket: c_int, _backlog: c_int) -> Result<()> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    /// Receive bytes from a socket into a contiguous buffer.
     unsafe fn recvfrom(
-        _socket: c_int,
-        _buf: *mut c_void,
-        _len: size_t,
+        socket: c_int,
+        buf: *mut c_void,
+        len: size_t,
         _flags: c_int,
         _address: *mut sockaddr,
         _address_len: *mut socklen_t,
     ) -> Result<usize> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        super::e(unsafe { super::syscall3(super::SYS_READ, socket as usize, buf as usize, len) })
     }
 
+    // TODO: Requires scatter-gather I/O support
+    /// Receive a message using scatter-gather buffers.
     unsafe fn recvmsg(_socket: c_int, _msg: *mut msghdr, _flags: c_int) -> Result<usize> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires scatter-gather I/O support
+    /// Send a message using scatter-gather buffers.
     unsafe fn sendmsg(_socket: c_int, _msg: *const msghdr, _flags: c_int) -> Result<usize> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    /// Send bytes from a contiguous buffer to a socket.
     unsafe fn sendto(
-        _socket: c_int,
-        _buf: *const c_void,
-        _len: size_t,
+        socket: c_int,
+        buf: *const c_void,
+        len: size_t,
         _flags: c_int,
         _dest_addr: *const sockaddr,
         _dest_len: socklen_t,
     ) -> Result<usize> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        super::e(unsafe { super::syscall3(super::SYS_WRITE, socket as usize, buf as usize, len) })
     }
 
+    // TODO: Requires kernel socket option tracking
+    /// Set a socket option value.
     unsafe fn setsockopt(
         _socket: c_int,
         _level: c_int,
@@ -106,23 +126,35 @@ impl PalSocket for super::Sys {
         _option_value: *const c_void,
         _option_len: socklen_t,
     ) -> Result<()> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires kernel half-close support on pipes
+    /// Shut down part or all of a full-duplex connection.
     fn shutdown(_socket: c_int, _how: c_int) -> Result<()> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: Requires kernel socket() or /net/ scheme
+    /// Create a socket endpoint.
     unsafe fn socket(_domain: c_int, _kind: c_int, _protocol: c_int) -> Result<c_int> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        Err(Errno(ENOSYS))
     }
 
+    // TODO: This creates a unidirectional pipe, not a true bidirectional
+    // socketpair. sv[0] is read-only, sv[1] is write-only. Full socketpair
+    // semantics require a kernel bidirectional channel primitive.
+    /// Create a pair of connected local sockets.
     fn socketpair(
-        _domain: c_int,
+        domain: c_int,
         _kind: c_int,
         _protocol: c_int,
-        _sv: &mut [c_int; 2],
+        sv: &mut [c_int; 2],
     ) -> Result<()> {
-        Err(crate::error::Errno(crate::header::errno::ENOSYS))
+        if domain != AF_UNIX {
+            return Err(Errno(EAFNOSUPPORT));
+        }
+        super::e_raw(strat9_syscall!(super::SYS_PIPE, sv.as_mut_ptr() as u64))?;
+        Ok(())
     }
 }

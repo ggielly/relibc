@@ -20,6 +20,7 @@ pub struct dl_tls_index {
 }
 
 #[unsafe(no_mangle)]
+/// Implements tls get addr.
 pub unsafe extern "C" fn __tls_get_addr(ti: *mut dl_tls_index) -> *mut c_void {
     let tcb = unsafe { Tcb::current().unwrap() };
     let ti = unsafe { &*ti };

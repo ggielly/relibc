@@ -1,7 +1,15 @@
 use alloc::vec::Vec;
 
 pub trait IoctlData {
+    /// Implements write.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn write(&self) -> Vec<u8>;
+    /// Implements read from.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn read_from(&mut self, buf: &[u8]);
 }
 
@@ -64,6 +72,10 @@ macro_rules! define_ioctl_data {
         }
 
         impl $crate::ioctl_data::IoctlData for $ioctl_ty {
+            /// Implements write.
+            ///
+            /// # Safety
+            /// The caller must uphold the required pointer and ABI invariants.
             unsafe fn write(&self) -> Vec<u8> {
                 let noncounted_fields = ${concat(__, $mem_ty, Noncounted)} {
                     $($noncounted_field: self.$noncounted_field,)*
@@ -91,6 +103,10 @@ macro_rules! define_ioctl_data {
                 data
             }
 
+            /// Implements read from.
+            ///
+            /// # Safety
+            /// The caller must uphold the required pointer and ABI invariants.
             unsafe fn read_from(&mut self, mut buf: &[u8]) {
                 // FIXME be robust against malicious scheme implementations by returning an error
                 // when the buf is the wrong size
@@ -114,6 +130,7 @@ macro_rules! define_ioctl_data {
         }
 
         impl<'a> $mem_ty<'a> {
+            /// Implements with.
             pub fn with(
                 mut buf: &'a mut [u8],
                 f: impl FnOnce($mem_ty<'a>) -> syscall::Result<usize>,

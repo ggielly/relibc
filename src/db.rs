@@ -18,10 +18,12 @@ pub struct Db<R: BufRead> {
 }
 
 impl<R: BufRead> Db<R> {
+    /// Creates a new instance.
     pub fn new(reader: R, separator: Separator) -> Self {
         Db { reader, separator }
     }
 
+    /// Implements read.
     pub fn read(&mut self) -> io::Result<Option<Vec<String>>> {
         let mut line = String::new();
         if self.reader.read_line(&mut line)? == 0 {
@@ -44,6 +46,7 @@ impl<R: BufRead> Db<R> {
 pub type FileDb = Db<BufReader<File>>;
 
 impl FileDb {
+    /// Implements open.
     pub fn open(path: CStr, separator: Separator) -> io::Result<Self> {
         let file = File::open(path, fcntl::O_RDONLY | fcntl::O_CLOEXEC)?;
         Ok(Db::new(BufReader::new(file), separator))

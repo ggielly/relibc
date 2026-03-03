@@ -8,10 +8,15 @@ use crate::{
 };
 
 impl PalEpoll for Sys {
+    /// Implements epoll create1.
     fn epoll_create1(flags: c_int) -> Result<c_int> {
         Ok(unsafe { e_raw(syscall!(EPOLL_CREATE1, flags))? as c_int })
     }
 
+    /// Implements epoll ctl.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn epoll_ctl(epfd: c_int, op: c_int, fd: c_int, event: *mut epoll_event) -> Result<()> {
         unsafe {
             e_raw(syscall!(EPOLL_CTL, epfd, op, fd, event))?;
@@ -19,6 +24,10 @@ impl PalEpoll for Sys {
         Ok(())
     }
 
+    /// Implements epoll pwait.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn epoll_pwait(
         epfd: c_int,
         events: *mut epoll_event,

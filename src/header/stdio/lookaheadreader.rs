@@ -6,6 +6,7 @@ struct LookAheadBuffer {
     look_ahead: isize,
 }
 impl LookAheadBuffer {
+    /// Implements look ahead.
     fn look_ahead(&mut self) -> Result<Option<u8>, i32> {
         let byte = unsafe { *self.buf.offset(self.look_ahead) };
         if byte == 0 {
@@ -16,12 +17,14 @@ impl LookAheadBuffer {
         }
     }
 
+    /// Implements commit.
     fn commit(&mut self) {
         self.pos = self.look_ahead;
     }
 }
 
 impl From<*const u8> for LookAheadBuffer {
+    /// Implements from.
     fn from(buff: *const u8) -> LookAheadBuffer {
         LookAheadBuffer {
             buf: buff,
@@ -37,6 +40,7 @@ struct LookAheadFile<'a> {
 }
 
 impl<'a> LookAheadFile<'a> {
+    /// Implements look ahead.
     fn look_ahead(&mut self) -> Result<Option<u8>, i32> {
         let buf = &mut [0];
         let seek = unsafe { ftell_locked(self.f) };
@@ -51,12 +55,14 @@ impl<'a> LookAheadFile<'a> {
         ret
     }
 
+    /// Implements commit.
     fn commit(&mut self) {
         unsafe { fseek_locked(self.f, self.look_ahead as off_t, SEEK_SET) };
     }
 }
 
 impl<'a> From<&'a mut FILE> for LookAheadFile<'a> {
+    /// Implements from.
     fn from(f: &'a mut FILE) -> LookAheadFile<'a> {
         let look_ahead = unsafe { ftell_locked(f) } as i64;
         LookAheadFile { f, look_ahead }
@@ -72,12 +78,14 @@ enum LookAheadReaderEnum<'a> {
 pub struct LookAheadReader<'a>(LookAheadReaderEnum<'a>);
 
 impl<'a> LookAheadReader<'a> {
+    /// Implements lookahead1.
     pub fn lookahead1(&mut self) -> Result<Option<u8>, i32> {
         match &mut self.0 {
             LookAheadReaderEnum::FILE(f) => f.look_ahead(),
             LookAheadReaderEnum::BUFFER(b) => b.look_ahead(),
         }
     }
+    /// Implements commit.
     pub fn commit(&mut self) {
         match &mut self.0 {
             LookAheadReaderEnum::FILE(f) => f.commit(),
@@ -87,12 +95,14 @@ impl<'a> LookAheadReader<'a> {
 }
 
 impl<'a> From<&'a mut FILE> for LookAheadReader<'a> {
+    /// Implements from.
     fn from(f: &'a mut FILE) -> LookAheadReader<'a> {
         LookAheadReader(LookAheadReaderEnum::FILE(f.into()))
     }
 }
 
 impl<'a> From<*const u8> for LookAheadReader<'a> {
+    /// Implements from.
     fn from(buff: *const u8) -> LookAheadReader<'a> {
         LookAheadReader(LookAheadReaderEnum::BUFFER(buff.into()))
     }

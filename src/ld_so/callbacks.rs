@@ -10,6 +10,7 @@ pub struct LinkerCallbacks {
 }
 
 impl LinkerCallbacks {
+    /// Creates a new instance.
     pub fn new() -> LinkerCallbacks {
         LinkerCallbacks {
             unload: Box::new(unload),
@@ -19,10 +20,12 @@ impl LinkerCallbacks {
     }
 }
 
+/// Implements unload.
 fn unload(linker: &mut Linker, handle: ObjectHandle) {
     linker.unload(handle)
 }
 
+/// Implements load library.
 fn load_library(
     linker: &mut Linker,
     name: Option<&str>,
@@ -33,6 +36,7 @@ fn load_library(
     linker.load_library(name, resolve, scope, noload)
 }
 
+/// Returns get sym.
 fn get_sym(linker: &Linker, handle: Option<ObjectHandle>, name: &str) -> Option<*mut c_void> {
     linker.get_sym(handle, name)
 }

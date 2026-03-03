@@ -29,6 +29,7 @@ pub type elf_gregset_t = user_regs_struct;
 pub type elf_fpregset_t = user_fpregs_struct;
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen only generates structs if they are mentioned which is dumb riscv64 user.
 pub extern "C" fn _cbindgen_only_generates_structs_if_they_are_mentioned_which_is_dumb_riscv64_user(
     a: user_regs_struct,
     b: user_fpregs_struct,

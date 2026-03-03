@@ -18,6 +18,7 @@ use redox_rt::{
 };
 use syscall::{data::Stat, error::*, flag::*};
 
+/// Implements fexec impl.
 fn fexec_impl(
     exec_file: FdGuardUpper,
     path: &[u8],
@@ -67,6 +68,7 @@ pub enum Executable<'a> {
     InFd { file: File, arg0: &'a [u8] },
 }
 
+/// Implements execve.
 pub fn execve(
     exec: Executable<'_>,
     arg_env: ArgEnv,
@@ -450,6 +452,7 @@ mod tests {
     const SHEBANG_NO_INTERP_SPACE: &str = "#! ";
     const SHEBANG_NO_INTERP_SCRIPT: &str = "#!\necho ${PATH}";
 
+    /// Implements success.
     fn success(input: &str, expected_interp: &str, expected_args: Option<&str>) {
         let mut reader = Cursor::new(input);
         let (actual_interp, actual_args) = parse_interpreter(&mut reader)
@@ -471,16 +474,19 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter without space.
     fn parse_interpreter_without_space() {
         success(NO_FRILLS, NO_FRILLS_EXPECTED, None);
     }
 
     #[test]
+    /// Implements parse interpreter with space.
     fn parse_interpreter_with_space() {
         success(SPACE_B4_INTERP, SPACE_B4_INTERP_EXPECTED, None);
     }
 
     #[test]
+    /// Implements parse interpreter with arg.
     fn parse_interpreter_with_arg() {
         success(
             NO_FRILLS_ENV,
@@ -490,6 +496,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter with arg and space.
     fn parse_interpreter_with_arg_and_space() {
         success(
             SPACE_B4_ENV,
@@ -499,6 +506,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter with multiple spaces.
     fn parse_interpreter_with_multiple_spaces() {
         success(
             MULT_SPACES_B4,
@@ -508,11 +516,13 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter with script.
     fn parse_interpreter_with_script() {
         success(NO_FRILLS_W_SCRIPT, NO_FRILLS_W_SCRIPT_EXPECTED, None);
     }
 
     #[test]
+    /// Implements parse interpreter with script and space.
     fn parse_interpreter_with_script_and_space() {
         success(
             SPACE_B4_INTERP_W_SCRIPT,
@@ -522,6 +532,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter with script args space.
     fn parse_interpreter_with_script_args_space() {
         success(
             MULT_ARGUMENTS,
@@ -531,6 +542,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter no shebang.
     fn parse_interpreter_no_shebang() {
         let mut reader = Cursor::new(NO_SHEBANG);
         let (interpreter, args) =
@@ -547,6 +559,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter empty.
     fn parse_interpreter_empty() {
         let mut reader = Cursor::new(EMPTY);
         let (interpreter, args) =
@@ -560,6 +573,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter no interpreter fail.
     fn parse_interpreter_no_interpreter_fail() {
         let mut reader = Cursor::new(SHEBANG_NO_INTERP);
         parse_interpreter(&mut reader)
@@ -567,6 +581,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter no interpreter space fail.
     fn parse_interpreter_no_interpreter_space_fail() {
         let mut reader = Cursor::new(SHEBANG_NO_INTERP_SPACE);
         parse_interpreter(&mut reader)
@@ -574,6 +589,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements parse interpreter no interpreter script fail.
     fn parse_interpreter_no_interpreter_script_fail() {
         let mut reader = Cursor::new(SHEBANG_NO_INTERP_SCRIPT);
         parse_interpreter(&mut reader)

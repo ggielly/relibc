@@ -9,6 +9,7 @@ use crate::platform::{
 
 //TODO: Consider removing, provided for compatibility with newlib
 #[unsafe(no_mangle)]
+/// Implements errno.
 pub extern "C" fn __errno() -> *mut c_int {
     __errno_location()
 }

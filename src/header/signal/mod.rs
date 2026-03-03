@@ -96,6 +96,7 @@ pub struct siginfo {
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen export siginfo.
 pub extern "C" fn _cbindgen_export_siginfo(a: siginfo) {}
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/signal.h.html>.
@@ -134,12 +135,14 @@ global_asm!(
 );
 
 unsafe extern "C" {
+    /// Implements sigsetjmp.
     pub fn sigsetjmp(jb: *mut u64, savemask: i32) -> i32;
 }
 
 //NOTE for the following two functions, to see why they're implemented slightly differently from their intended behavior, read
 //     https://git.musl-libc.org/cgit/musl/commit/?id=583e55122e767b1586286a0d9c35e2a4027998ab
 #[unsafe(no_mangle)]
+/// Implements sigsetjmp tail.
 unsafe extern "C" fn __sigsetjmp_tail(jb: *mut u64, ret: i32) -> i32 {
     let set = jb.wrapping_add(9);
     if ret > 0 {
@@ -151,6 +154,7 @@ unsafe extern "C" fn __sigsetjmp_tail(jb: *mut u64, ret: i32) -> i32 {
 }
 
 #[unsafe(no_mangle)]
+/// Implements siglongjmp.
 pub unsafe extern "C" fn siglongjmp(jb: *mut u64, ret: i32) {
     unsafe { setjmp::longjmp(jb, ret) };
 }
@@ -602,4 +606,5 @@ pub unsafe extern "C" fn psiginfo(info: *const siginfo_t, prefix: *const c_char)
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen stupid struct sigevent for timer.
 pub unsafe extern "C" fn cbindgen_stupid_struct_sigevent_for_timer(_: sigevent) {}

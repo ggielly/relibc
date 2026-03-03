@@ -315,6 +315,10 @@ pub unsafe extern "C" fn strcpy(dst: *mut c_char, src: *const c_char) -> *mut c_
     dst
 }
 
+/// Implements inner strspn.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn inner_strspn(s1: *const c_char, s2: *const c_char, cmp: bool) -> size_t {
     let mut s1 = s1.cast::<u8>();
     let mut s2 = s2.cast::<u8>();
@@ -406,6 +410,7 @@ pub unsafe extern "C" fn strlcat(dst: *mut c_char, src: *const c_char, dstsize: 
 }
 
 #[unsafe(no_mangle)]
+/// Implements strsep.
 pub unsafe extern "C" fn strsep(str_: *mut *mut c_char, sep: *const c_char) -> *mut c_char {
     let s = unsafe { *str_ };
     if s.is_null() {
@@ -572,6 +577,10 @@ pub unsafe extern "C" fn strspn(s1: *const c_char, s2: *const c_char) -> size_t 
     unsafe { inner_strspn(s1, s2, true) }
 }
 
+/// Implements inner strstr.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_strstr(
     mut haystack: *const c_char,
     needle: *const c_char,

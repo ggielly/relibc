@@ -6,6 +6,7 @@ use crate::{
 };
 use alloc::string::String;
 
+/// Returns get dns server.
 pub fn get_dns_server() -> Result<String, Errno> {
     let mut string = String::new();
     let mut file = File::open(c"/etc/net/dns".into(), fcntl::O_RDONLY)?;

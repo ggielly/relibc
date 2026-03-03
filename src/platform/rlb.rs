@@ -23,6 +23,7 @@ pub enum Line<'a> {
 }
 
 impl RawLineBuffer {
+    /// Creates a new instance.
     pub const fn new(fd: c_int) -> Self {
         Self {
             fd,
@@ -35,6 +36,7 @@ impl RawLineBuffer {
     // Can't use iterators because we want to return a reference.
     // See https://stackoverflow.com/a/30422716/5069285
     #[allow(clippy::should_implement_trait)]
+    /// Implements next.
     pub fn next(&mut self) -> Line<'_> {
         // Remove last line
         if let Some(newline) = self.newline {

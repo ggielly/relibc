@@ -28,6 +28,7 @@ use super::{
 
 pub type LookupHost = Vec<in_addr>;
 
+/// Implements lookup host.
 pub fn lookup_host(host: &str) -> Result<LookupHost, c_int> {
     if let Some(host_direct_addr) = parse_ipv4_string(host) {
         // already an ip address
@@ -130,6 +131,7 @@ pub fn lookup_host(host: &str) -> Result<LookupHost, c_int> {
     }
 }
 
+/// Implements lookup addr.
 pub fn lookup_addr(addr: in_addr) -> Result<Vec<Vec<u8>>, c_int> {
     let dns_string = get_dns_server().map_err(|e| e.0)?;
 
@@ -227,6 +229,7 @@ pub fn lookup_addr(addr: in_addr) -> Result<Vec<Vec<u8>>, c_int> {
     }
 }
 
+/// Implements parse revdns answer.
 fn parse_revdns_answer(data: &[u8]) -> Vec<u8> {
     if data.is_empty() || data[0] == 0 {
         return vec![0];
@@ -260,6 +263,7 @@ fn parse_revdns_answer(data: &[u8]) -> Vec<u8> {
     output
 }
 
+/// Implements parse ipv4 string.
 pub fn parse_ipv4_string(ip_string: &str) -> Option<u32> {
     let dns_vec: Vec<u8> = ip_string
         .trim()
@@ -305,6 +309,7 @@ mod tests {
     const EXPECTED_EMPTY_RESPONSE_RT: &str = "";
 
     #[test]
+    /// Implements dns response dns google.
     fn dns_response_dns_google() {
         let response = parse_revdns_answer(DNS_GOOGLE);
         assert_eq!(
@@ -326,6 +331,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements dns response fake with nums.
     fn dns_response_fake_with_nums() {
         let response = parse_revdns_answer(FAKE_WITH_NUMS);
         assert_eq!(
@@ -347,6 +353,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements dns response empty.
     fn dns_response_empty() {
         let response = parse_revdns_answer(EMPTY_RESPONSE);
         assert_eq!(

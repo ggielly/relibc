@@ -66,6 +66,7 @@ pub type prstatus_t = elf_prstatus;
 pub type prpsinfo_t = elf_prpsinfo;
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen export procfs.
 pub extern "C" fn _cbindgen_export_procfs(
     a: psaddr_t,
     b: prgregset_t,

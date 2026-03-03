@@ -12,6 +12,7 @@ pub struct sockaddr_un {
 }
 
 impl sockaddr_un {
+    /// Implements path offset.
     pub fn path_offset(&self) -> usize {
         let base = core::ptr::from_ref(self) as usize;
         let path = &raw const self.sun_path as usize;

@@ -28,14 +28,30 @@ pub trait Kind: private::Sealed + Copy + 'static {
 
     const IS_THIN_NOT_WIDE: bool;
 
+    /// Implements r2c.
     fn r2c(c: Self::Char) -> Self::C;
+    /// Implements c2r.
     fn c2r(c: Self::C) -> Self::Char;
 
+    /// Implements chars from bytes.
     fn chars_from_bytes(b: &[u8]) -> Option<&[Self::Char]>;
+    /// Implements chars to bytes.
     fn chars_to_bytes(c: &[Self::Char]) -> Option<&[u8]>;
 
+    /// Implements strlen.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strlen(s: *const Self::C) -> usize;
+    /// Implements strchr.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strchr(s: *const Self::C, c: Self::C) -> *const Self::C;
+    /// Implements strchrnul.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strchrnul(s: *const Self::C, c: Self::C) -> *const Self::C;
 }
 impl Kind for Thin {
@@ -45,24 +61,40 @@ impl Kind for Thin {
     const NUL: Self::Char = 0;
     const IS_THIN_NOT_WIDE: bool = true;
 
+    /// Implements strlen.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strlen(s: *const c_char) -> usize {
         unsafe { crate::header::string::strlen(s) }
     }
+    /// Implements strchr.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strchr(s: *const c_char, c: c_char) -> *const c_char {
         unsafe { crate::header::string::strchr(s, c.into()) }
     }
+    /// Implements strchrnul.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strchrnul(s: *const c_char, c: c_char) -> *const c_char {
         unsafe { crate::header::string::strchrnul(s, c.into()) }
     }
+    /// Implements r2c.
     fn r2c(c: u8) -> c_char {
         c as _
     }
+    /// Implements c2r.
     fn c2r(c: c_char) -> u8 {
         c as _
     }
+    /// Implements chars from bytes.
     fn chars_from_bytes(b: &[u8]) -> Option<&[Self::Char]> {
         Some(b)
     }
+    /// Implements chars to bytes.
     fn chars_to_bytes(c: &[Self::Char]) -> Option<&[u8]> {
         Some(c)
     }
@@ -74,12 +106,24 @@ impl Kind for Wide {
     const NUL: Self::Char = 0;
     const IS_THIN_NOT_WIDE: bool = false;
 
+    /// Implements strlen.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strlen(s: *const Self::C) -> usize {
         unsafe { crate::header::wchar::wcslen(s) }
     }
+    /// Implements strchr.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strchr(s: *const Self::C, c: Self::C) -> *const Self::C {
         unsafe { crate::header::wchar::wcschr(s, c) }
     }
+    /// Implements strchrnul.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn strchrnul(mut s: *const Self::C, c: Self::C) -> *const Self::C {
         // TODO: optimized function
         while unsafe { s.read() } != c && unsafe { s.read() } != 0 {
@@ -87,15 +131,19 @@ impl Kind for Wide {
         }
         s
     }
+    /// Implements r2c.
     fn r2c(c: Self::Char) -> Self::C {
         c as _
     }
+    /// Implements c2r.
     fn c2r(c: Self::C) -> Self::Char {
         c as _
     }
+    /// Implements chars from bytes.
     fn chars_from_bytes(b: &[u8]) -> Option<&[Self::Char]> {
         None
     }
+    /// Implements chars to bytes.
     fn chars_to_bytes(c: &[Self::Char]) -> Option<&[u8]> {
         None
     }
@@ -121,6 +169,10 @@ impl<'a, T: Kind> NulStr<'a, T> {
             _marker: PhantomData,
         }
     }
+    /// Implements from nullable ptr.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn from_nullable_ptr(ptr: *const T::C) -> Option<Self> {
         if ptr.is_null() {
             None
@@ -193,10 +245,12 @@ impl<'a, T: Kind> NulStr<'a, T> {
     // TODO: strrchr, strchrnul wrappers
 
     #[inline]
+    /// Implements contains.
     pub fn contains(self, c: T::Char) -> bool {
         self.find(c).is_some()
     }
     #[inline]
+    /// Implements first.
     pub fn first(self) -> T::Char {
         unsafe {
             // SAFETY: Self must be valid up to and including its nearest NUL byte, which certainly
@@ -205,6 +259,7 @@ impl<'a, T: Kind> NulStr<'a, T> {
         }
     }
     #[inline]
+    /// Implements first char.
     pub fn first_char(self) -> Option<char> {
         char::from_u32(self.first().into())
     }
@@ -224,6 +279,7 @@ impl<'a, T: Kind> NulStr<'a, T> {
             Self::from_ptr(self.as_ptr().add(1))
         }))
     }
+    /// Implements to chars with nul.
     pub fn to_chars_with_nul(self) -> &'a [T::Char] {
         unsafe {
             // SAFETY: The string must be valid at least until (and including) the NUL byte.
@@ -231,16 +287,23 @@ impl<'a, T: Kind> NulStr<'a, T> {
             core::slice::from_raw_parts(self.ptr.as_ptr().cast(), len + 1)
         }
     }
+    /// Implements to chars.
     pub fn to_chars(self) -> &'a [T::Char] {
         let s = self.to_chars_with_nul();
         &s[..s.len() - 1]
     }
+    /// Implements as ptr.
     pub const fn as_ptr(self) -> *const T::C {
         self.ptr.as_ptr()
     }
+    /// Implements from chars with nul unchecked.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub const unsafe fn from_chars_with_nul_unchecked(chars: &'a [T::Char]) -> Self {
         unsafe { Self::from_ptr(chars.as_ptr().cast()) }
     }
+    /// Implements from chars with nul.
     pub fn from_chars_with_nul(chars: &'a [T::Char]) -> Result<Self, FromCharsWithNulError> {
         if chars.last() != Some(&T::NUL) || chars[..chars.len() - 1].contains(&T::NUL) {
             return Err(FromCharsWithNulError);
@@ -248,6 +311,7 @@ impl<'a, T: Kind> NulStr<'a, T> {
 
         Ok(unsafe { Self::from_chars_with_nul_unchecked(chars) })
     }
+    /// Implements from chars until nul.
     pub fn from_chars_until_nul(chars: &'a [T::Char]) -> Result<Self, FromCharsUntilNulError> {
         if !chars.contains(&T::NUL) {
             return Err(FromCharsUntilNulError);
@@ -262,40 +326,53 @@ impl<'a, T: Kind> NulStr<'a, T> {
         self.to_chars().len()
     }
     #[inline]
+    /// Checks whether is empty.
     pub fn is_empty(&self) -> bool {
         self.first() == T::NUL
     }
 }
 impl<'a> CStr<'a> {
+    /// Implements to owned cstring.
     pub fn to_owned_cstring(self) -> CString {
         CString::from(unsafe { core::ffi::CStr::from_ptr(self.ptr.as_ptr()) })
     }
+    /// Implements borrow.
     pub fn borrow(string: &'a CString) -> Self {
         unsafe { Self::from_ptr(string.as_ptr()) }
     }
     #[inline]
+    /// Implements to bytes.
     pub fn to_bytes(self) -> &'a [u8] {
         self.to_chars()
     }
     #[inline]
+    /// Implements to bytes with nul.
     pub fn to_bytes_with_nul(self) -> &'a [u8] {
         self.to_chars_with_nul()
     }
+    /// Implements to str.
     pub fn to_str(self) -> Result<&'a str, Utf8Error> {
         core::str::from_utf8(self.to_bytes())
     }
+    /// Implements to string lossy.
     pub fn to_string_lossy(self) -> Cow<'a, str> {
         String::from_utf8_lossy(self.to_bytes())
     }
     #[inline]
+    /// Implements from bytes with nul unchecked.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub const unsafe fn from_bytes_with_nul_unchecked(bytes: &'a [u8]) -> Self {
         unsafe { Self::from_chars_with_nul_unchecked(bytes) }
     }
     #[inline]
+    /// Implements from bytes with nul.
     pub fn from_bytes_with_nul(bytes: &'a [u8]) -> Result<Self, FromCharsWithNulError> {
         Self::from_chars_with_nul(bytes)
     }
     #[inline]
+    /// Implements from bytes until nul.
     pub fn from_bytes_until_nul(bytes: &'a [u8]) -> Result<Self, FromCharsUntilNulError> {
         Self::from_chars_until_nul(bytes)
     }
@@ -305,6 +382,7 @@ unsafe impl<T: Kind> Send for NulStr<'_, T> {}
 unsafe impl<T: Kind> Sync for NulStr<'_, T> {}
 
 impl From<&core::ffi::CStr> for CStr<'_> {
+    /// Implements from.
     fn from(s: &core::ffi::CStr) -> Self {
         // SAFETY:
         // * We can assume that `s` is valid because the caller should have upheld its

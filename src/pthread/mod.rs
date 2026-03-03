@@ -51,6 +51,10 @@ pub unsafe fn init() {
 //static NEXT_INDEX: AtomicU32 = AtomicU32::new(FIRST_THREAD_IDX + 1);
 //const FIRST_THREAD_IDX: usize = 1;
 
+/// Implements terminate from main thread.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn terminate_from_main_thread() {
     for (_, tcb) in OS_TID_TO_PTHREAD.lock().iter() {
         let _ = unsafe { cancel(&(*tcb.0).pthread) };
@@ -95,6 +99,7 @@ struct MmapGuard {
     mmap_size: usize,
 }
 impl Drop for MmapGuard {
+    /// Implements drop.
     fn drop(&mut self) {
         unsafe {
             let _ = Sys::munmap(self.page_start, self.mmap_size);
@@ -103,6 +108,10 @@ impl Drop for MmapGuard {
 }
 
 #[allow(unused_mut)]
+/// Implements create.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(crate) unsafe fn create(
     attrs: Option<&header::RlctAttr>,
     start_routine: extern "C" fn(arg: *mut c_void) -> *mut c_void,
@@ -248,6 +257,10 @@ unsafe extern "C" fn new_thread_shim(
 
     unsafe { exit_current_thread(Retval(retval)) }
 }
+/// Implements join.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn join(thread: &Pthread) -> Result<Retval, Errno> {
     // We don't have to return EDEADLK, but unlike e.g. pthread_t lifetime checking, it's a
     // relatively easy check.
@@ -270,6 +283,10 @@ pub unsafe fn join(thread: &Pthread) -> Result<Retval, Errno> {
     Ok(retval)
 }
 
+/// Implements detach.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn detach(thread: &Pthread) -> Result<(), Errno> {
     thread
         .flags
@@ -277,10 +294,15 @@ pub unsafe fn detach(thread: &Pthread) -> Result<(), Errno> {
     Ok(())
 }
 
+/// Implements current thread.
 pub fn current_thread() -> Option<&'static Pthread> {
     unsafe { Tcb::current().map(|p| &p.pthread) }
 }
 
+/// Implements testcancel.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn testcancel() {
     let this_thread = current_thread().expect("current thread not present");
 
@@ -291,6 +313,10 @@ pub unsafe fn testcancel() {
     }
 }
 
+/// Implements exit current thread.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn exit_current_thread(retval: Retval) -> ! {
     // Run pthread_cleanup_push/pthread_cleanup_pop destructors.
     unsafe { header::run_destructor_stack() };
@@ -313,6 +339,10 @@ pub unsafe fn exit_current_thread(retval: Retval) -> ! {
     unsafe { Sys::exit_thread(stack_base.cast(), stack_size) }
 }
 
+/// Implements dealloc thread.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn dealloc_thread(thread: &Pthread) {
     // TODO: How should this be handled on Linux?
     unsafe {
@@ -322,14 +352,23 @@ unsafe fn dealloc_thread(thread: &Pthread) {
 pub const SIGRT_RLCT_CANCEL: usize = 33;
 pub const SIGRT_RLCT_TIMER: usize = 34;
 
+/// Implements cancel sighandler.
 unsafe extern "C" fn cancel_sighandler(_: c_int) {
     unsafe { cancel_current_thread() };
 }
+/// Implements cancel current thread.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn cancel_current_thread() {
     // Terminate the thread
     unsafe { exit_current_thread(Retval(header::PTHREAD_CANCELED)) };
 }
 
+/// Implements cancel.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn cancel(thread: &Pthread) -> Result<(), Errno> {
     // TODO: What order should these atomic bools be accessed in?
     thread.has_queued_cancelation.store(true, Ordering::Release);
@@ -341,6 +380,7 @@ pub unsafe fn cancel(thread: &Pthread) -> Result<(), Errno> {
     Ok(())
 }
 
+/// Sets set sched param.
 pub fn set_sched_param(
     _thread: &Pthread,
     _policy: c_int,
@@ -349,10 +389,12 @@ pub fn set_sched_param(
     // TODO
     Ok(())
 }
+/// Sets set sched priority.
 pub fn set_sched_priority(_thread: &Pthread, _prio: c_int) -> Result<(), Errno> {
     // TODO
     Ok(())
 }
+/// Sets set cancel state.
 pub fn set_cancel_state(state: c_int) -> Result<c_int, Errno> {
     let this_thread = current_thread().expect("current thread not present");
 
@@ -381,6 +423,7 @@ pub fn set_cancel_state(state: c_int) -> Result<c_int, Errno> {
         false => header::PTHREAD_CANCEL_DISABLE,
     })
 }
+/// Sets set cancel type.
 pub fn set_cancel_type(ty: c_int) -> Result<c_int, Errno> {
     let this_thread = current_thread().expect("current thread not present");
 
@@ -393,10 +436,12 @@ pub fn set_cancel_type(ty: c_int) -> Result<c_int, Errno> {
     }
     Ok(header::PTHREAD_CANCEL_DEFERRED)
 }
+/// Returns get cpu clkid.
 pub fn get_cpu_clkid(thread: &Pthread) -> Result<clockid_t, Errno> {
     // TODO
     Err(Errno(ENOENT))
 }
+/// Returns get sched param.
 pub fn get_sched_param(thread: &Pthread) -> Result<(clockid_t, sched_param), Errno> {
     todo!()
 }
@@ -423,6 +468,7 @@ pub enum Pshared {
     Shared,
 }
 impl Pshared {
+    /// Implements from raw.
     pub const fn from_raw(raw: c_int) -> Option<Self> {
         Some(match raw {
             header::PTHREAD_PROCESS_PRIVATE => Self::Private,
@@ -431,6 +477,7 @@ impl Pshared {
             _ => return None,
         })
     }
+    /// Implements raw.
     pub const fn raw(self) -> c_int {
         match self {
             Self::Private => header::PTHREAD_PROCESS_PRIVATE,

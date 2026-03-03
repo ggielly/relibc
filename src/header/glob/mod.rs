@@ -181,10 +181,12 @@ struct DirEntry {
     is_dir: bool,
 }
 
+/// Implements default errfunc.
 unsafe extern "C" fn default_errfunc(epath: *const c_char, eerrno: c_int) -> c_int {
     0
 }
 
+/// Implements list dir.
 fn list_dir(
     path: &CStr,
     errfunc: GlobErrorFunc,
@@ -275,6 +277,7 @@ fn list_dir(
     Ok(results)
 }
 
+/// Implements inner glob.
 fn inner_glob(
     current_dir: &CStr,
     glob_expr: &CStr,

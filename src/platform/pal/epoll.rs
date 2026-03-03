@@ -5,8 +5,17 @@ use crate::{
 };
 
 pub trait PalEpoll: Pal {
+    /// Implements epoll create1.
     fn epoll_create1(flags: c_int) -> Result<c_int>;
+    /// Implements epoll ctl.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn epoll_ctl(epfd: c_int, op: c_int, fd: c_int, event: *mut epoll_event) -> Result<()>;
+    /// Implements epoll pwait.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn epoll_pwait(
         epfd: c_int,
         events: *mut epoll_event,

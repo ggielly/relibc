@@ -15,16 +15,19 @@ use crate::platform::types::*;
 /// May be replaced with the one from num-traits at a later time if so
 /// desired.
 pub unsafe trait Zero {
+    /// Checks whether is zero.
     fn is_zero(&self) -> bool;
 }
 
 unsafe impl Zero for c_char {
+    /// Checks whether is zero.
     fn is_zero(&self) -> bool {
         self == &0
     }
 }
 
 unsafe impl Zero for wchar_t {
+    /// Checks whether is zero.
     fn is_zero(&self) -> bool {
         self == &0
     }
@@ -44,6 +47,7 @@ pub struct NulTerminated<'a, T: Zero> {
 impl<'a, T: Zero> Iterator for NulTerminated<'a, T> {
     type Item = &'a T;
 
+    /// Implements next.
     fn next(&mut self) -> Option<Self::Item> {
         // SAFETY: the caller is required to ensure a valid pointer to a
         // 0-terminated buffer is provided, and the zero-check below ensures
@@ -97,6 +101,7 @@ pub struct NulTerminatedInclusive<'a, T: Zero> {
 impl<'a, T: Zero> Iterator for NulTerminatedInclusive<'a, T> {
     type Item = &'a T;
 
+    /// Implements next.
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(old_ptr) = self.ptr_opt {
             // SAFETY: the caller is required to ensure a valid pointer to a
@@ -159,6 +164,7 @@ pub struct SrcDstPtrIter<'a, I: Iterator, U: Copy> {
 impl<'a, I: Iterator, U: Copy> Iterator for SrcDstPtrIter<'a, I, U> {
     type Item = (I::Item, &'a mut MaybeUninit<U>);
 
+    /// Implements next.
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(src_item) = self.src_iter.next() {
             let old_dst_ptr = self.dst_ptr;

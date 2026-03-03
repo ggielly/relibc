@@ -14,6 +14,7 @@ use crate::{
 
 use crate::platform::types::c_char;
 
+/// Returns getpass rs.
 fn getpass_rs(prompt: CStr, passbuff: &mut [u8]) -> Result<*mut c_char, io::Error> {
     let mut f = File::open(c"/dev/tty".into(), O_RDWR | O_CLOEXEC)?;
 

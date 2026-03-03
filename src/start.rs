@@ -21,14 +21,17 @@ pub struct Stack {
 }
 
 impl Stack {
+    /// Implements argv.
     pub fn argv(&self) -> *const *const c_char {
         ptr::from_ref(&self.argv0)
     }
 
+    /// Implements envp.
     pub fn envp(&self) -> *const *const c_char {
         unsafe { self.argv().offset(self.argc + 1) }
     }
 
+    /// Implements auxv.
     pub fn auxv(&self) -> *const (usize, usize) {
         unsafe {
             let mut envp = self.envp();
@@ -40,6 +43,10 @@ impl Stack {
     }
 }
 
+/// Implements copy string array.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn copy_string_array(array: *const *const c_char, len: usize) -> Vec<*mut c_char> {
     use crate::header::string::strlen;
 
@@ -74,6 +81,10 @@ unsafe fn copy_string_array(array: *const *const c_char, len: usize) -> Vec<*mut
 // Since Redox and Linux are so similar, it is easy to accidentally run a binary from one on the
 // other. This will test that the current system is compatible with the current binary
 #[unsafe(no_mangle)]
+/// Implements relibc verify host.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn relibc_verify_host() {
     if !Sys::verify() {
         intrinsics::abort();
@@ -89,6 +100,7 @@ static mut init_complete: bool = false;
 #[unsafe(no_mangle)]
 static mut __relibc_init_environ: *mut *mut c_char = ptr::null_mut();
 
+/// Implements alloc init.
 fn alloc_init() {
     unsafe {
         if init_complete {
@@ -104,6 +116,7 @@ fn alloc_init() {
     }
 }
 
+/// Implements init array.
 extern "C" fn init_array() {
     // The thing is that we cannot guarantee if
     // init_array runs first or if relibc_start runs first
@@ -131,6 +144,7 @@ extern "C" fn init_array() {
     }
 }
 
+/// Implements io init.
 fn io_init() {
     unsafe {
         // Initialize stdin/stdout/stderr.
@@ -143,6 +157,7 @@ fn io_init() {
 
 #[inline(never)]
 #[unsafe(no_mangle)]
+/// Implements relibc start v1.
 pub unsafe extern "C" fn relibc_start_v1(
     sp: &'static Stack,
     main: unsafe extern "C" fn(
@@ -157,6 +172,7 @@ pub unsafe extern "C" fn relibc_start_v1(
         static __init_array_start: extern "C" fn();
         static __init_array_end: extern "C" fn();
 
+        /// Implements init.
         fn _init();
     }
 

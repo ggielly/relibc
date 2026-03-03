@@ -29,6 +29,7 @@ pub struct CVec<T> {
     cap: usize,
 }
 impl<T> CVec<T> {
+    /// Creates a new instance.
     pub fn new() -> Self {
         Self {
             ptr: NonNull::dangling(),
@@ -36,6 +37,7 @@ impl<T> CVec<T> {
             cap: 0,
         }
     }
+    /// Implements check bounds.
     fn check_bounds(i: usize) -> Result<usize, AllocError> {
         if i > isize::MAX as usize {
             Err(AllocError)
@@ -43,11 +45,13 @@ impl<T> CVec<T> {
             Ok(i)
         }
     }
+    /// Implements check mul.
     fn check_mul(x: usize, y: usize) -> Result<usize, AllocError> {
         x.checked_mul(y)
             .ok_or(AllocError)
             .and_then(Self::check_bounds)
     }
+    /// Implements with capacity.
     pub fn with_capacity(cap: usize) -> Result<Self, AllocError> {
         if cap == 0 {
             return Ok(Self::new());
@@ -56,6 +60,10 @@ impl<T> CVec<T> {
         let ptr = NonNull::new(unsafe { platform::alloc(size).cast::<T>() }).ok_or(AllocError)?;
         Ok(Self { ptr, len: 0, cap })
     }
+    /// Implements resize.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn resize(&mut self, cap: usize) -> Result<(), AllocError> {
         let size = Self::check_mul(cap, mem::size_of::<T>())?;
         let ptr = if cap == 0 {
@@ -72,6 +80,10 @@ impl<T> CVec<T> {
         self.cap = cap;
         Ok(())
     }
+    /// Implements drop range.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn drop_range(&mut self, start: usize, end: usize) {
         let mut start = unsafe { self.ptr.as_ptr().add(start) };
         let end = unsafe { self.ptr.as_ptr().add(end) };
@@ -83,6 +95,7 @@ impl<T> CVec<T> {
 
     // Push stuff
 
+    /// Implements reserve.
     pub fn reserve(&mut self, required: usize) -> Result<(), AllocError> {
         let required_len = self
             .len
@@ -97,6 +110,7 @@ impl<T> CVec<T> {
         }
         Ok(())
     }
+    /// Implements push.
     pub fn push(&mut self, elem: T) -> Result<(), AllocError> {
         self.reserve(1)?;
         unsafe {
@@ -105,6 +119,7 @@ impl<T> CVec<T> {
         self.len += 1; // no need to bounds check, as new len <= cap
         Ok(())
     }
+    /// Implements extend from slice.
     pub fn extend_from_slice(&mut self, elems: &[T]) -> Result<(), AllocError>
     where
         T: Copy,
@@ -116,6 +131,7 @@ impl<T> CVec<T> {
         self.len += elems.len(); // no need to bounds check, as new len <= cap
         Ok(())
     }
+    /// Implements append.
     pub fn append(&mut self, other: &mut Self) -> Result<(), AllocError> {
         let len = other.len;
         other.len = 0; // move
@@ -129,6 +145,7 @@ impl<T> CVec<T> {
 
     // Pop stuff
 
+    /// Implements truncate.
     pub fn truncate(&mut self, len: usize) {
         if len < self.len {
             unsafe {
@@ -138,6 +155,7 @@ impl<T> CVec<T> {
             self.len = len;
         }
     }
+    /// Implements shrink to fit.
     pub fn shrink_to_fit(&mut self) -> Result<(), AllocError> {
         if self.len < self.cap {
             unsafe {
@@ -147,6 +165,7 @@ impl<T> CVec<T> {
         }
         Ok(())
     }
+    /// Implements pop.
     pub fn pop(&mut self) -> Option<T> {
         if self.is_empty() {
             None
@@ -159,12 +178,15 @@ impl<T> CVec<T> {
 
     // Misc stuff
 
+    /// Implements capacity.
     pub fn capacity(&self) -> usize {
         self.cap
     }
+    /// Implements as ptr.
     pub fn as_ptr(&self) -> *const T {
         self.ptr.as_ptr()
     }
+    /// Implements as mut ptr.
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.ptr.as_ptr()
     }
@@ -178,16 +200,19 @@ impl<T> CVec<T> {
 impl<T> Deref for CVec<T> {
     type Target = [T];
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 }
 impl<T> DerefMut for CVec<T> {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
 }
 impl<T> Drop for CVec<T> {
+    /// Implements drop.
     fn drop(&mut self) {
         unsafe {
             let len = self.len;
@@ -198,6 +223,7 @@ impl<T> Drop for CVec<T> {
 impl<'a, T> IntoIterator for &'a CVec<T> {
     type Item = <&'a [T] as IntoIterator>::Item;
     type IntoIter = <&'a [T] as IntoIterator>::IntoIter;
+    /// Implements into iter.
     fn into_iter(self) -> Self::IntoIter {
         <&[T]>::into_iter(&*self)
     }
@@ -205,12 +231,14 @@ impl<'a, T> IntoIterator for &'a CVec<T> {
 impl<'a, T> IntoIterator for &'a mut CVec<T> {
     type Item = <&'a mut [T] as IntoIterator>::Item;
     type IntoIter = <&'a mut [T] as IntoIterator>::IntoIter;
+    /// Implements into iter.
     fn into_iter(self) -> Self::IntoIter {
         <&mut [T]>::into_iter(&mut *self)
     }
 }
 
 impl Write for CVec<u8> {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.extend_from_slice(buf).map_err(|err| {
             io::Error::new(
@@ -220,17 +248,20 @@ impl Write for CVec<u8> {
         })?;
         Ok(buf.len())
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
 impl fmt::Write for CVec<u8> {
+    /// Implements write str.
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write(s.as_bytes()).map_err(|_| fmt::Error)?;
         Ok(())
     }
 }
 impl WriteByte for CVec<u8> {
+    /// Implements write u8.
     fn write_u8(&mut self, byte: u8) -> fmt::Result {
         self.write(&[byte]).map_err(|_| fmt::Error)?;
         Ok(())
@@ -242,6 +273,7 @@ mod tests {
     use super::CVec;
 
     #[test]
+    /// Implements push pop.
     fn push_pop() {
         let mut vec = CVec::new();
         vec.push(1).unwrap();
@@ -252,6 +284,7 @@ mod tests {
         assert_eq!(&vec[..], &[1, 2]);
     }
     #[test]
+    /// Implements extend from slice.
     fn extend_from_slice() {
         use crate::io::Write;
 
@@ -263,6 +296,7 @@ mod tests {
         assert_eq!(&vec[..], &[1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
     #[test]
+    /// Implements dropped.
     fn dropped() {
         use alloc::rc::Rc;
 

@@ -13,16 +13,19 @@ pub struct aiocb {
 }
 
 // #[unsafe(no_mangle)]
+/// Implements aio read.
 pub extern "C" fn aio_read(aiocbp: *mut aiocb) -> c_int {
     unimplemented!();
 }
 
 // #[unsafe(no_mangle)]
+/// Implements aio write.
 pub extern "C" fn aio_write(aiocbp: *mut aiocb) -> c_int {
     unimplemented!();
 }
 
 // #[unsafe(no_mangle)]
+/// Implements lio listio.
 pub extern "C" fn lio_listio(
     mode: c_int,
     list: *const *const aiocb,
@@ -33,21 +36,25 @@ pub extern "C" fn lio_listio(
 }
 
 // #[unsafe(no_mangle)]
+/// Implements aio error.
 pub extern "C" fn aio_error(aiocbp: *const aiocb) -> c_int {
     unimplemented!();
 }
 
 // #[unsafe(no_mangle)]
+/// Implements aio return.
 pub extern "C" fn aio_return(aiocbp: *mut aiocb) -> usize {
     unimplemented!();
 }
 
 // #[unsafe(no_mangle)]
+/// Implements aio cancel.
 pub extern "C" fn aio_cancel(fildes: c_int, aiocbp: *mut aiocb) -> c_int {
     unimplemented!();
 }
 
 // #[unsafe(no_mangle)]
+/// Implements aio suspend.
 pub extern "C" fn aio_suspend(
     list: *const *const aiocb,
     nent: c_int,
@@ -57,6 +64,7 @@ pub extern "C" fn aio_suspend(
 }
 
 // #[unsafe(no_mangle)]
+/// Implements aio fsync.
 pub extern "C" fn aio_fsync(operation: c_int, aiocbp: *mut aiocb) -> c_int {
     unimplemented!();
 }

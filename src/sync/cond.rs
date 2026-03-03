@@ -20,6 +20,7 @@ pub struct CondAttr {
 }
 
 impl Default for CondAttr {
+    /// Creates a new instance.
     fn default() -> Self {
         Self {
             // defaults according to POSIX
@@ -37,18 +38,21 @@ pub struct Cond {
 type Result<T, E = Errno> = core::result::Result<T, E>;
 
 impl Default for Cond {
+    /// Creates a new instance.
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl Cond {
+    /// Creates a new instance.
     pub fn new() -> Self {
         Self {
             cur: AtomicUint::new(0),
             prev: AtomicUint::new(0),
         }
     }
+    /// Implements wake.
     fn wake(&self, count: i32) -> Result<(), Errno> {
         // This is formally correct as long as we don't have more than u32::MAX threads.
         let prev = self.prev.load(Ordering::Relaxed);
@@ -57,13 +61,16 @@ impl Cond {
         crate::sync::futex_wake(&self.cur, count);
         Ok(())
     }
+    /// Implements broadcast.
     pub fn broadcast(&self) -> Result<(), Errno> {
         self.wake(i32::MAX)
     }
+    /// Implements signal.
     pub fn signal(&self) -> Result<(), Errno> {
         self.broadcast()
         //self.wake(1)
     }
+    /// Implements clockwait.
     pub fn clockwait(
         &self,
         mutex: &RlctMutex,
@@ -79,10 +86,12 @@ impl Cond {
 
         self.wait_inner(mutex, Some(&relative))
     }
+    /// Implements timedwait.
     pub fn timedwait(&self, mutex: &RlctMutex, timeout: &timespec) -> Result<(), Errno> {
         // TODO: The clock can be other than CLOCK_REALTIME depends on CondAttr
         self.clockwait(mutex, timeout, CLOCK_REALTIME)
     }
+    /// Implements wait inner.
     fn wait_inner(&self, mutex: &RlctMutex, timeout: Option<&timespec>) -> Result<(), Errno> {
         self.wait_inner_generic(|| mutex.unlock(), || mutex.lock(), timeout)
     }
@@ -107,6 +116,7 @@ impl Cond {
         newguard.unwrap()
     }
     // TODO: FUTEX_REQUEUE
+    /// Implements wait inner generic.
     fn wait_inner_generic(
         &self,
         unlock: impl FnOnce() -> Result<()>,
@@ -128,6 +138,7 @@ impl Cond {
             super::FutexWaitResult::TimedOut => Err(Errno(ETIMEDOUT)),
         }
     }
+    /// Implements wait.
     pub fn wait(&self, mutex: &RlctMutex) -> Result<(), Errno> {
         self.wait_inner(mutex, None)
     }

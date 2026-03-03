@@ -163,6 +163,7 @@ pub const _SC_SIGSTKSZ: c_int = 250;
 const _POSIX_VERSION: c_long = 200809;
 const _XOPEN_VERSION: c_long = 700;
 
+/// Implements sysconf impl.
 pub(super) fn sysconf_impl(name: c_int) -> c_long {
     // Values from musl which we can assume is correct.
     match name {

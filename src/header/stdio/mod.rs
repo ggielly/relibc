@@ -62,6 +62,7 @@ enum Buffer<'a> {
 impl<'a> Deref for Buffer<'a> {
     type Target = [u8];
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         match self {
             Buffer::Borrowed(inner) => inner,
@@ -71,6 +72,7 @@ impl<'a> Deref for Buffer<'a> {
 }
 
 impl<'a> DerefMut for Buffer<'a> {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             Buffer::Borrowed(inner) => inner,
@@ -80,32 +82,38 @@ impl<'a> DerefMut for Buffer<'a> {
 }
 
 pub trait Pending {
+    /// Implements pending.
     fn pending(&self) -> size_t;
 }
 
 impl<W: crate::io::Write> Pending for BufWriter<W> {
+    /// Implements pending.
     fn pending(&self) -> size_t {
         self.buf.len() as size_t
     }
 }
 
 impl<W: crate::io::Write> Pending for LineWriter<W> {
+    /// Implements pending.
     fn pending(&self) -> size_t {
         self.inner.buf.len() as size_t
     }
 }
 
 pub trait Writer: Write + Pending {
+    /// Implements purge.
     fn purge(&mut self);
 }
 
 impl<W: crate::io::Write> Writer for BufWriter<W> {
+    /// Implements purge.
     fn purge(&mut self) {
         self.buf.clear();
     }
 }
 
 impl<W: crate::io::Write> Writer for LineWriter<W> {
+    /// Implements purge.
     fn purge(&mut self) {
         self.inner.buf.clear();
     }
@@ -138,6 +146,7 @@ pub struct FILE {
 }
 
 impl Read for FILE {
+    /// Implements read.
     fn read(&mut self, out: &mut [u8]) -> io::Result<usize> {
         let unget_read_size = cmp::min(out.len(), self.unget.len());
         for i in 0..unget_read_size {
@@ -160,6 +169,7 @@ impl Read for FILE {
 }
 
 impl BufRead for FILE {
+    /// Implements fill buf.
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         if self.read_pos == self.read_size {
             self.read_size = match self.file.read(&mut self.read_buf) {
@@ -177,12 +187,14 @@ impl BufRead for FILE {
         }
         Ok(&self.read_buf[self.read_pos..self.read_size])
     }
+    /// Implements consume.
     fn consume(&mut self, i: usize) {
         self.read_pos = (self.read_pos + i).min(self.read_size);
     }
 }
 
 impl Write for FILE {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self.writer.write(buf) {
             Ok(n) => Ok(n),
@@ -192,6 +204,7 @@ impl Write for FILE {
             }
         }
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         match self.writer.flush() {
             Ok(()) => Ok(()),
@@ -204,6 +217,7 @@ impl Write for FILE {
 }
 
 impl WriteFmt for FILE {
+    /// Implements write str.
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_all(s.as_bytes())
             .map(|_| ())
@@ -212,12 +226,14 @@ impl WriteFmt for FILE {
 }
 
 impl WriteByte for FILE {
+    /// Implements write u8.
     fn write_u8(&mut self, c: u8) -> fmt::Result {
         self.write_all(&[c]).map(|_| ()).map_err(|_| fmt::Error)
     }
 }
 
 impl FILE {
+    /// Implements lock.
     pub fn lock(&mut self) -> LockGuard<'_> {
         unsafe {
             flockfile(self);
@@ -225,11 +241,13 @@ impl FILE {
         LockGuard(self)
     }
 
+    /// Implements try set orientation.
     pub fn try_set_orientation(&mut self, mode: c_int) -> c_int {
         let stream = self.lock();
         stream.0.try_set_orientation_unlocked(mode)
     }
 
+    /// Implements try set orientation unlocked.
     pub fn try_set_orientation_unlocked(&mut self, mode: c_int) -> c_int {
         if self.orientation == 0 {
             self.orientation = match mode {
@@ -241,6 +259,7 @@ impl FILE {
         self.orientation
     }
 
+    /// Implements try set byte orientation unlocked.
     pub fn try_set_byte_orientation_unlocked(&mut self) -> core::result::Result<(), c_int> {
         match self.try_set_orientation_unlocked(-1) {
             i32::MIN..=-1 => Ok(()),
@@ -248,6 +267,7 @@ impl FILE {
         }
     }
 
+    /// Implements try set wide orientation unlocked.
     pub fn try_set_wide_orientation_unlocked(&mut self) -> core::result::Result<(), c_int> {
         match self.try_set_orientation_unlocked(1) {
             1..=i32::MAX => Ok(()),
@@ -255,6 +275,7 @@ impl FILE {
         }
     }
 
+    /// Implements purge.
     pub fn purge(&mut self) {
         // Purge read buffer
         self.read_pos = 0;
@@ -271,18 +292,21 @@ pub struct LockGuard<'a>(&'a mut FILE);
 impl<'a> Deref for LockGuard<'a> {
     type Target = FILE;
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
 
 impl<'a> DerefMut for LockGuard<'a> {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
 }
 
 impl<'a> Drop for LockGuard<'a> {
+    /// Implements drop.
     fn drop(&mut self) {
         unsafe {
             funlockfile(self.0);
@@ -315,6 +339,7 @@ pub unsafe extern "C" fn ctermid(s: *mut c_char) -> *mut c_char {
 ///
 /// Marked legacy in SUS Version 2.
 // #[unsafe(no_mangle)]
+/// Implements cuserid.
 pub unsafe extern "C" fn cuserid(s: *mut c_char) -> *mut c_char {
     let mut buf: Vec<c_char> = vec![0; 256];
     let mut pwd: pwd::passwd = unsafe { mem::zeroed() };
@@ -736,6 +761,10 @@ pub unsafe extern "C" fn fseeko(stream: *mut FILE, off: off_t, whence: c_int) ->
     unsafe { fseek_locked(&mut stream, off, whence) }
 }
 
+/// Implements fseek locked.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn fseek_locked(stream: &mut FILE, mut off: off_t, whence: c_int) -> c_int {
     if whence == SEEK_CUR {
         // Since it's a buffered writer, our actual cursor isn't where the user
@@ -785,6 +814,7 @@ pub unsafe extern "C" fn ftello(stream: *mut FILE) -> off_t {
     unsafe { ftell_locked(&mut stream) }
 }
 
+/// Implements ftell locked.
 pub unsafe extern "C" fn ftell_locked(stream: &mut FILE) -> off_t {
     let pos = Sys::lseek(*stream.file, 0, SEEK_CUR).or_minus_one_errno();
     if pos < 0 {
@@ -1261,6 +1291,10 @@ pub unsafe extern "C" fn setvbuf(
 /// Marked obsolescent in issue 7.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn tempnam(dir: *const c_char, pfx: *const c_char) -> *mut c_char {
+    /// Checks whether is appropriate.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn is_appropriate(pos_dir: *const c_char) -> bool {
         !pos_dir.is_null() && unsafe { unistd::access(pos_dir, unistd::W_OK) } == 0
     }
@@ -1344,6 +1378,7 @@ pub unsafe extern "C" fn tmpnam(s: *mut c_char) -> *mut c_char {
     unsafe { tmpnam_inner(buf, 1) }
 }
 
+/// Implements tmpnam inner.
 unsafe extern "C" fn tmpnam_inner(buf: *mut c_char, offset: usize) -> *mut c_char {
     const TEMPLATE: &[u8] = b"XXXXXX\0";
 
@@ -1395,12 +1430,7 @@ pub unsafe extern "C" fn fprintf(
     format: *const c_char,
     mut __valist: ...
 ) -> c_int {
-    #[cfg(target_os = "strat9")]
-    unsafe { 
-        __valist.with_copy(|copy| vfprintf(file, format, copy))
-    }
-    #[cfg(not(target_os = "strat9"))]
-    unsafe { vfprintf(file, format, __valist.as_va_list()) }
+    unsafe { vfprintf(file, format, __valist) }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/vdprintf.html>.
@@ -1418,7 +1448,7 @@ pub unsafe extern "C" fn vdprintf(fd: c_int, format: *const c_char, ap: va_list)
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/dprintf.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn dprintf(fd: c_int, format: *const c_char, mut __valist: ...) -> c_int {
-    unsafe { vdprintf(fd, format, __valist.as_va_list()) }
+    unsafe { vdprintf(fd, format, __valist) }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/vfprintf.html>.
@@ -1430,7 +1460,7 @@ pub unsafe extern "C" fn vprintf(format: *const c_char, ap: va_list) -> c_int {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/fprintf.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn printf(format: *const c_char, mut __valist: ...) -> c_int {
-    unsafe { vfprintf(&raw mut *stdout, format, __valist.as_va_list()) }
+    unsafe { vfprintf(&raw mut *stdout, format, __valist) }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/vfprintf.html>.
@@ -1455,7 +1485,7 @@ pub unsafe extern "C" fn asprintf(
     format: *const c_char,
     mut __valist: ...
 ) -> c_int {
-    unsafe { vasprintf(strp, format, __valist.as_va_list()) }
+    unsafe { vasprintf(strp, format, __valist) }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/vfprintf.html>.
@@ -1487,7 +1517,7 @@ pub unsafe extern "C" fn snprintf(
         printf::printf(
             &mut platform::StringWriter(s.cast::<u8>(), n),
             CStr::from_ptr(format),
-            __valist.as_va_list(),
+            __valist,
         )
     }
 }
@@ -1515,7 +1545,7 @@ pub unsafe extern "C" fn sprintf(
         printf::printf(
             &mut platform::UnsafeStringWriter(s.cast::<u8>()),
             CStr::from_ptr(format),
-            __valist.as_va_list(),
+            __valist,
         )
     }
 }
@@ -1540,7 +1570,7 @@ pub unsafe extern "C" fn fscanf(
     format: *const c_char,
     mut __valist: ...
 ) -> c_int {
-    unsafe { vfscanf(file, format, __valist.as_va_list()) }
+    unsafe { vfscanf(file, format, __valist) }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/vfscanf.html>.
@@ -1552,7 +1582,7 @@ pub unsafe extern "C" fn vscanf(format: *const c_char, ap: va_list) -> c_int {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/fscanf.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn scanf(format: *const c_char, mut __valist: ...) -> c_int {
-    unsafe { vfscanf(&raw mut *stdin, format, __valist.as_va_list()) }
+    unsafe { vfscanf(&raw mut *stdin, format, __valist) }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/vfscanf.html>.
@@ -1570,9 +1600,13 @@ pub unsafe extern "C" fn sscanf(
     mut __valist: ...
 ) -> c_int {
     let reader = (s.cast::<u8>()).into();
-    unsafe { scanf::scanf(reader, format, __valist.as_va_list()) }
+    unsafe { scanf::scanf(reader, format, __valist) }
 }
 
+/// Implements flush io streams.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn flush_io_streams() {
     let flush = |stream: *mut FILE| {
         let stream = unsafe { &mut *stream };

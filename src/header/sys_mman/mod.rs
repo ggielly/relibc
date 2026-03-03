@@ -163,6 +163,13 @@ static SHM_PATH: &[u8] = b"/dev/shm/";
 #[cfg(target_os = "redox")]
 static SHM_PATH: &[u8] = b"/scheme/shm/";
 
+#[cfg(target_os = "strat9")]
+static SHM_PATH: &[u8] = b"/dev/shm/";
+
+/// Implements shm path.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn shm_path(name: *const c_char) -> CString {
     let name_c = unsafe { CStr::from_ptr(name) };
 

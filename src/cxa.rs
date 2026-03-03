@@ -22,6 +22,7 @@ static CXA_ATEXIT_FUNCS: Mutex<Vec<Option<CxaAtExitFunc>>> = Mutex::new(Vec::new
 static DTORS: RefCell<Vec<CxaThreadAtExitFunc>> = RefCell::new(Vec::new());
 
 #[unsafe(no_mangle)]
+/// Implements cxa atexit.
 pub unsafe extern "C" fn __cxa_atexit(
     func: Option<extern "C" fn(*mut c_void)>,
     arg: *mut c_void,
@@ -52,6 +53,7 @@ pub unsafe extern "C" fn __cxa_atexit(
 }
 
 #[unsafe(no_mangle)]
+/// Implements cxa finalize.
 pub unsafe extern "C" fn __cxa_finalize(dso: *mut c_void) {
     let mut funcs = CXA_ATEXIT_FUNCS.lock();
 
@@ -76,6 +78,7 @@ pub unsafe extern "C" fn __cxa_finalize(dso: *mut c_void) {
 }
 
 #[unsafe(no_mangle)]
+/// Implements cxa thread atexit impl.
 pub unsafe extern "C" fn __cxa_thread_atexit_impl(
     func: extern "C" fn(*mut c_void),
     obj: *mut c_void,
@@ -86,6 +89,10 @@ pub unsafe extern "C" fn __cxa_thread_atexit_impl(
 }
 
 // called internally
+/// Implements cxa thread finalize.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn __cxa_thread_finalize() {
     let mut dtors = DTORS.borrow_mut();
     while let Some(entry) = dtors.pop() {
@@ -94,11 +101,13 @@ pub unsafe fn __cxa_thread_finalize() {
 }
 
 #[unsafe(no_mangle)]
+/// Implements ITM deregisterTMCloneTable.
 pub unsafe extern "C" fn _ITM_deregisterTMCloneTable(_ptr: *mut c_void) {
     // No-op
 }
 
 #[unsafe(no_mangle)]
+/// Implements ITM registerTMCloneTable.
 pub unsafe extern "C" fn _ITM_registerTMCloneTable(_ptr: *mut c_void, _len: usize) {
     // No-op
 }

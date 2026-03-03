@@ -24,11 +24,19 @@ pub struct iovec {
 }
 
 impl iovec {
+    /// Implements to slice.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn to_slice(&self) -> &mut [u8] {
         unsafe { slice::from_raw_parts_mut(self.iov_base.cast::<u8>(), self.iov_len) }
     }
 }
 
+/// Implements gather.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn gather(iovs: &[iovec]) -> Vec<u8> {
     let mut vec = Vec::new();
     for iov in iovs.iter() {
@@ -37,6 +45,10 @@ unsafe fn gather(iovs: &[iovec]) -> Vec<u8> {
     vec
 }
 
+/// Implements scatter.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn scatter(iovs: &[iovec], vec: Vec<u8>) {
     let mut i = 0;
     for iov in iovs.iter() {

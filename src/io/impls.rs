@@ -15,26 +15,34 @@ use crate::io::{self, Error, ErrorKind, Initializer, Seek, SeekFrom, Write, prel
 
 impl<R: Read + ?Sized> Read for &mut R {
     #[inline]
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         (**self).read(buf)
     }
 
     #[inline]
+    /// Implements initializer.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn initializer(&self) -> Initializer {
         unsafe { (**self).initializer() }
     }
 
     #[inline]
+    /// Implements read to end.
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
         (**self).read_to_end(buf)
     }
 
     #[inline]
+    /// Implements read to string.
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
         (**self).read_to_string(buf)
     }
 
     #[inline]
+    /// Implements read exact.
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
         (**self).read_exact(buf)
     }
@@ -42,27 +50,32 @@ impl<R: Read + ?Sized> Read for &mut R {
 
 impl<W: Write + ?Sized> Write for &mut W {
     #[inline]
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         (**self).write(buf)
     }
 
     #[inline]
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         (**self).flush()
     }
 
     #[inline]
+    /// Implements write all.
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         (**self).write_all(buf)
     }
 
     #[inline]
+    /// Implements write fmt.
     fn write_fmt(&mut self, fmt: fmt::Arguments) -> io::Result<()> {
         (**self).write_fmt(fmt)
     }
 }
 impl<S: Seek + ?Sized> Seek for &mut S {
     #[inline]
+    /// Implements seek.
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         (**self).seek(pos)
     }
@@ -70,21 +83,25 @@ impl<S: Seek + ?Sized> Seek for &mut S {
 
 impl<B: BufRead + ?Sized> BufRead for &mut B {
     #[inline]
+    /// Implements fill buf.
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         (**self).fill_buf()
     }
 
     #[inline]
+    /// Implements consume.
     fn consume(&mut self, amt: usize) {
         (**self).consume(amt)
     }
 
     #[inline]
+    /// Implements read until.
     fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> io::Result<usize> {
         (**self).read_until(byte, buf)
     }
 
     #[inline]
+    /// Implements read line.
     fn read_line(&mut self, buf: &mut String) -> io::Result<usize> {
         (**self).read_line(buf)
     }
@@ -92,26 +109,34 @@ impl<B: BufRead + ?Sized> BufRead for &mut B {
 
 impl<R: Read + ?Sized> Read for Box<R> {
     #[inline]
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         (**self).read(buf)
     }
 
     #[inline]
+    /// Implements initializer.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn initializer(&self) -> Initializer {
         unsafe { (**self).initializer() }
     }
 
     #[inline]
+    /// Implements read to end.
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
         (**self).read_to_end(buf)
     }
 
     #[inline]
+    /// Implements read to string.
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
         (**self).read_to_string(buf)
     }
 
     #[inline]
+    /// Implements read exact.
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
         (**self).read_exact(buf)
     }
@@ -119,21 +144,25 @@ impl<R: Read + ?Sized> Read for Box<R> {
 
 impl<W: Write + ?Sized> Write for Box<W> {
     #[inline]
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         (**self).write(buf)
     }
 
     #[inline]
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         (**self).flush()
     }
 
     #[inline]
+    /// Implements write all.
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         (**self).write_all(buf)
     }
 
     #[inline]
+    /// Implements write fmt.
     fn write_fmt(&mut self, fmt: fmt::Arguments) -> io::Result<()> {
         (**self).write_fmt(fmt)
     }
@@ -141,6 +170,7 @@ impl<W: Write + ?Sized> Write for Box<W> {
 
 impl<S: Seek + ?Sized> Seek for Box<S> {
     #[inline]
+    /// Implements seek.
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         (**self).seek(pos)
     }
@@ -148,21 +178,25 @@ impl<S: Seek + ?Sized> Seek for Box<S> {
 
 impl<B: BufRead + ?Sized> BufRead for Box<B> {
     #[inline]
+    /// Implements fill buf.
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         (**self).fill_buf()
     }
 
     #[inline]
+    /// Implements consume.
     fn consume(&mut self, amt: usize) {
         (**self).consume(amt)
     }
 
     #[inline]
+    /// Implements read until.
     fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> io::Result<usize> {
         (**self).read_until(byte, buf)
     }
 
     #[inline]
+    /// Implements read line.
     fn read_line(&mut self, buf: &mut String) -> io::Result<usize> {
         (**self).read_line(buf)
     }
@@ -177,6 +211,7 @@ impl<B: BufRead + ?Sized> BufRead for Box<B> {
 /// The slice will be empty when EOF is reached.
 impl Read for &[u8] {
     #[inline]
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let amt = cmp::min(buf.len(), self.len());
         let (a, b) = self.split_at(amt);
@@ -195,11 +230,16 @@ impl Read for &[u8] {
     }
 
     #[inline]
+    /// Implements initializer.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn initializer(&self) -> Initializer {
         unsafe { Initializer::nop() }
     }
 
     #[inline]
+    /// Implements read exact.
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
         if buf.len() > self.len() {
             return Err(Error::new(
@@ -223,6 +263,7 @@ impl Read for &[u8] {
     }
 
     #[inline]
+    /// Implements read to end.
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
         buf.extend_from_slice(self);
         let len = self.len();
@@ -233,11 +274,13 @@ impl Read for &[u8] {
 
 impl BufRead for &[u8] {
     #[inline]
+    /// Implements fill buf.
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         Ok(*self)
     }
 
     #[inline]
+    /// Implements consume.
     fn consume(&mut self, amt: usize) {
         *self = &self[amt..];
     }
@@ -250,6 +293,7 @@ impl BufRead for &[u8] {
 /// The slice will be empty when it has been completely overwritten.
 impl Write for &mut [u8] {
     #[inline]
+    /// Implements write.
     fn write(&mut self, data: &[u8]) -> io::Result<usize> {
         let amt = cmp::min(data.len(), self.len());
         let (a, b) = mem::replace(self, &mut []).split_at_mut(amt);
@@ -259,6 +303,7 @@ impl Write for &mut [u8] {
     }
 
     #[inline]
+    /// Implements write all.
     fn write_all(&mut self, data: &[u8]) -> io::Result<()> {
         if self.write(data)? == data.len() {
             Ok(())
@@ -271,6 +316,7 @@ impl Write for &mut [u8] {
     }
 
     #[inline]
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
@@ -280,18 +326,21 @@ impl Write for &mut [u8] {
 /// The vector will grow as needed.
 impl Write for Vec<u8> {
     #[inline]
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.extend_from_slice(buf);
         Ok(buf.len())
     }
 
     #[inline]
+    /// Implements write all.
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         self.extend_from_slice(buf);
         Ok(())
     }
 
     #[inline]
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }

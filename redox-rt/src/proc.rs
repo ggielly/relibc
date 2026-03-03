@@ -65,6 +65,7 @@ pub struct ExtraInfo<'a> {
     pub cwd_fd: Option<usize>,
 }
 
+/// Implements fexec impl.
 pub fn fexec_impl(
     image_file: FdGuardUpper,
     thread_fd: &FdGuardUpper,
@@ -500,6 +501,7 @@ pub fn fexec_impl(
 fn write_usizes<const N: usize>(fd: &FdGuardUpper, usizes: [usize; N]) -> Result<usize> {
     fd.write(unsafe { plain::as_bytes(&usizes) })
 }
+/// Implements mmap remote.
 pub fn mmap_remote(
     addrspace_fd: &FdGuardUpper,
     fd: &FdGuardUpper,
@@ -526,6 +528,7 @@ pub fn mmap_remote(
         ],
     )
 }
+/// Implements mmap anon remote.
 pub fn mmap_anon_remote(
     addrspace_fd: &FdGuardUpper,
     offset: usize,
@@ -551,6 +554,7 @@ pub fn mmap_anon_remote(
         ],
     )
 }
+/// Implements mprotect remote.
 pub fn mprotect_remote(
     addrspace_fd: &FdGuardUpper,
     addr: usize,
@@ -572,6 +576,7 @@ pub fn mprotect_remote(
     )?;
     Ok(())
 }
+/// Implements munmap remote.
 pub fn munmap_remote(addrspace_fd: &FdGuardUpper, addr: usize, len: usize) -> Result<()> {
     write_usizes(
         addrspace_fd,
@@ -586,6 +591,7 @@ pub fn munmap_remote(addrspace_fd: &FdGuardUpper, addr: usize, len: usize) -> Re
     )?;
     Ok(())
 }
+/// Implements munmap transfer.
 pub fn munmap_transfer(
     src: &FdGuardUpper,
     dst: &FdGuardUpper,
@@ -613,6 +619,7 @@ pub fn munmap_transfer(
     )?;
     Ok(())
 }
+/// Implements pread all.
 fn pread_all(fd: &FdGuardUpper, offset: u64, buf: &mut [u8]) -> Result<()> {
     fd.lseek(offset as isize, SEEK_SET)?;
 
@@ -633,6 +640,7 @@ pub struct MmapGuard<'a> {
     size: usize,
 }
 impl<'a> MmapGuard<'a> {
+    /// Implements map.
     pub fn map(fd: &'a FdGuardUpper, map: &Map) -> Result<Self> {
         let base = unsafe { syscall::fmap(fd.as_raw_fd(), map)? };
         Ok(Self {
@@ -641,6 +649,7 @@ impl<'a> MmapGuard<'a> {
             base,
         })
     }
+    /// Implements remap.
     pub fn remap(&mut self, offset: usize, mut flags: MapFlags) -> Result<()> {
         flags.remove(MapFlags::MAP_FIXED_NOREPLACE);
         flags.insert(MapFlags::MAP_FIXED);
@@ -659,6 +668,10 @@ impl<'a> MmapGuard<'a> {
 
         Ok(())
     }
+    /// Implements map mut anywhere.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn map_mut_anywhere(
         fd: &'a FdGuardUpper,
         offset: usize,
@@ -677,20 +690,25 @@ impl<'a> MmapGuard<'a> {
 
         Ok((this, slice))
     }
+    /// Implements addr.
     pub fn addr(&self) -> usize {
         self.base
     }
+    /// Implements len.
     pub fn len(&self) -> usize {
         self.size
     }
+    /// Implements as mut ptr slice.
     pub fn as_mut_ptr_slice(&mut self) -> *mut [u8] {
         core::ptr::slice_from_raw_parts_mut(self.base as *mut u8, self.size)
     }
+    /// Implements take.
     pub fn take(mut self) {
         self.size = 0;
     }
 }
 impl<'a> Drop for MmapGuard<'a> {
+    /// Implements drop.
     fn drop(&mut self) {
         if self.size != 0 {
             let _ = unsafe { syscall::funmap(self.base, self.size) };
@@ -706,6 +724,7 @@ struct FileBufReader {
 }
 
 impl FileBufReader {
+    /// Implements from fd.
     pub fn from_fd(fd: usize) -> FileBufReader {
         FileBufReader {
             fd,
@@ -717,6 +736,7 @@ impl FileBufReader {
 }
 
 impl FileBufReader {
+    /// Implements read le u64.
     fn read_le_u64(&mut self) -> Result<Option<u64>> {
         if self.pos >= self.cap {
             debug_assert!(self.pos == self.cap);
@@ -747,6 +767,7 @@ pub struct FdGuard<const UPPER: bool = false> {
 pub type FdGuardUpper = FdGuard<true>;
 impl FdGuard<false> {
     #[inline]
+    /// Creates a new instance.
     pub fn new(fd: usize) -> Self {
         Self { fd }
     }
@@ -757,6 +778,7 @@ impl FdGuard<false> {
     }
 
     #[inline]
+    /// Implements to upper.
     pub fn to_upper(self) -> Result<FdGuardUpper> {
         // Move to upper table if necessary
         let fd = if self.fd & syscall::UPPER_FDTBL_TAG == 0 {
@@ -772,6 +794,7 @@ impl FdGuard<false> {
 
     // Not implemented for UPPER to prevent misuse
     #[inline]
+    /// Implements as c fd.
     pub fn as_c_fd(&self) -> Option<i32> {
         i32::try_from(self.fd).ok()
     }
@@ -787,56 +810,67 @@ impl<const UPPER: bool> FdGuard<UPPER> {
         syscall::openat(self.fd, path, flags, fcntl_flags).map(FdGuard::new)
     }
     #[inline]
+    /// Implements dup.
     pub fn dup(&self, buf: &[u8]) -> Result<FdGuard<false>> {
         syscall::dup(self.fd, buf).map(FdGuard::new)
     }
 
     #[inline]
+    /// Implements fcntl.
     pub fn fcntl(&self, cmd: usize, arg: usize) -> Result<usize> {
         syscall::fcntl(self.fd, cmd, arg)
     }
 
     #[inline]
+    /// Implements fstat.
     pub fn fstat(&self, stat: &mut syscall::Stat) -> Result<usize> {
         syscall::fstat(self.fd, stat)
     }
 
     #[inline]
+    /// Implements lseek.
     pub fn lseek(&self, offset: isize, whence: usize) -> Result<usize> {
         syscall::lseek(self.fd, offset, whence)
     }
 
     #[inline]
+    /// Implements read.
     pub fn read(&self, buf: &mut [u8]) -> Result<usize> {
         syscall::read(self.fd, buf)
     }
 
     #[inline]
+    /// Implements write.
     pub fn write(&self, buf: &[u8]) -> Result<usize> {
         syscall::write(self.fd, buf)
     }
 
     #[inline]
+    /// Implements call ro.
     pub fn call_ro(&self, payload: &mut [u8], flags: CallFlags, metadata: &[u64]) -> Result<usize> {
         syscall::call_ro(self.fd, payload, flags, metadata)
     }
 
     #[inline]
+    /// Implements call wo.
     pub fn call_wo(&self, payload: &[u8], flags: CallFlags, metadata: &[u64]) -> Result<usize> {
         syscall::call_wo(self.fd, payload, flags, metadata)
     }
 
     #[inline]
+    /// Implements call rw.
     pub fn call_rw(&self, payload: &mut [u8], flags: CallFlags, metadata: &[u64]) -> Result<usize> {
         syscall::call_rw(self.fd, payload, flags, metadata)
     }
 
     #[inline]
+    /// Implements as raw fd.
     pub fn as_raw_fd(&self) -> usize {
         self.fd
     }
 
     #[inline]
+    /// Implements take.
     pub fn take(self) -> usize {
         let fd = self.fd;
         core::mem::forget(self);
@@ -845,20 +879,24 @@ impl<const UPPER: bool> FdGuard<UPPER> {
 }
 impl<const UPPER: bool> Drop for FdGuard<UPPER> {
     #[inline]
+    /// Implements drop.
     fn drop(&mut self) {
         let _ = syscall::close(self.fd);
     }
 }
 impl Debug for FdGuard<false> {
+    /// Implements fmt.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "[fd {}]", self.fd)
     }
 }
 impl Debug for FdGuardUpper {
+    /// Implements fmt.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "[fd upper {}]", self.fd & !syscall::UPPER_FDTBL_TAG)
     }
 }
+/// Implements create set addr space buf.
 pub fn create_set_addr_space_buf(
     space: usize,
     ip: usize,
@@ -868,6 +906,7 @@ pub fn create_set_addr_space_buf(
     buf.copy_from_slice([space, sp, ip].map(usize::to_ne_bytes).as_flattened());
     buf
 }
+/// Implements create set addr space buf for fork.
 pub fn create_set_addr_space_buf_for_fork(
     space: usize,
     ip: usize,
@@ -904,6 +943,7 @@ pub enum ForkArgs<'a> {
     Managed,
 }
 
+/// Implements fork inner.
 pub fn fork_inner(initial_rsp: *mut usize, args: &ForkArgs) -> Result<usize> {
     let (cur_filetable_fd, new_proc_fd, new_thr_fd, new_pid);
 
@@ -1092,6 +1132,7 @@ pub struct NewChildProc {
     pid: usize,
 }
 
+/// Implements new child process.
 pub fn new_child_process(args: &ForkArgs<'_>) -> Result<NewChildProc> {
     match *args {
         ForkArgs::Managed => {
@@ -1139,6 +1180,10 @@ pub fn new_child_process(args: &ForkArgs<'_>) -> Result<NewChildProc> {
     }
 }
 
+/// Implements make init.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn make_init(proc_cap: usize) -> (&'static FdGuardUpper, &'static FdGuardUpper) {
     let proc_fd = FdGuard::new(
         syscall::openat(proc_cap, "init", syscall::O_CLOEXEC, 0).expect("failed to create init"),

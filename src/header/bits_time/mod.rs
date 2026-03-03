@@ -55,10 +55,12 @@ impl timespec {
 
         Some(time)
     }
+    /// Checks whether is default.
     pub fn is_default(&self) -> bool {
         self.tv_nsec == 0 && self.tv_sec == 0
     }
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen stupid alias timespec.
 pub unsafe extern "C" fn cbindgen_stupid_alias_timespec(_: timespec) {}

@@ -85,6 +85,10 @@ impl<Os> GenericTcb<Os> {
         value
     }
 
+    /// Implements current ptr.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn current_ptr() -> Option<*mut Self> {
         let tcb_ptr = unsafe { Self::arch_read(offset_of!(Self, tcb_ptr)) as *mut Self };
         let tcb_len = unsafe { Self::arch_read(offset_of!(Self, tcb_len)) };
@@ -94,10 +98,15 @@ impl<Os> GenericTcb<Os> {
             Some(tcb_ptr)
         }
     }
+    /// Implements current.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn current() -> Option<&'static mut Self> {
         unsafe { Some(&mut *Self::current_ptr()?) }
     }
 }
+/// Implements panic notls.
 pub fn panic_notls(_msg: impl core::fmt::Display) -> ! {
     // TODO: actually print _msg, perhaps by having panic_notls take a `T: DebugBackend` that can
     // propagate until called by e.g. relibc start
@@ -107,11 +116,13 @@ pub fn panic_notls(_msg: impl core::fmt::Display) -> ! {
 pub trait ExpectTlsFree {
     type Unwrapped;
 
+    /// Implements expect notls.
     fn expect_notls(self, msg: &str) -> Self::Unwrapped;
 }
 impl<T, E: core::fmt::Debug> ExpectTlsFree for Result<T, E> {
     type Unwrapped = T;
 
+    /// Implements expect notls.
     fn expect_notls(self, msg: &str) -> T {
         match self {
             Ok(t) => t,
@@ -124,6 +135,7 @@ impl<T, E: core::fmt::Debug> ExpectTlsFree for Result<T, E> {
 impl<T> ExpectTlsFree for Option<T> {
     type Unwrapped = T;
 
+    /// Implements expect notls.
     fn expect_notls(self, msg: &str) -> T {
         match self {
             Some(t) => t,

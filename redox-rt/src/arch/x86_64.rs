@@ -84,11 +84,13 @@ pub unsafe fn deactivate_tcb(open_via_dup: &FdGuardUpper) -> Result<()> {
     Ok(())
 }
 
+/// Implements fork impl.
 unsafe extern "sysv64" fn fork_impl(args: &ForkArgs, initial_rsp: *mut usize) -> usize {
     Error::mux(fork_inner(initial_rsp, args))
 }
 
 #[allow(unsafe_op_in_unsafe_fn)]
+/// Implements child hook.
 unsafe extern "sysv64" fn child_hook(scratchpad: &ForkScratchpad) {
     let _ = syscall::close(scratchpad.cur_filetable_fd);
     crate::child_hook_common(crate::ChildHookCommonArgs {
@@ -452,8 +454,11 @@ __relibc_internal_sigentry_crit_third:
 ]);
 
 unsafe extern "C" {
+    /// Implements relibc internal sigentry crit first.
     fn __relibc_internal_sigentry_crit_first();
+    /// Implements relibc internal sigentry crit second.
     fn __relibc_internal_sigentry_crit_second();
+    /// Implements relibc internal sigentry crit third.
     fn __relibc_internal_sigentry_crit_third();
 }
 /// Fixes some edge cases, and calculates the value for uc_stack.
@@ -495,6 +500,10 @@ pub(crate) static SUPPORTS_AVX: AtomicU8 = AtomicU8::new(0);
 // __relibc will be prepended to the name, so no_mangle is fine
 #[allow(unsafe_op_in_unsafe_fn)]
 #[unsafe(no_mangle)]
+/// Implements manually enter trampoline.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn manually_enter_trampoline() {
     let c = &Tcb::current().unwrap().os_specific.control;
     c.control_flags.store(

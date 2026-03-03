@@ -207,6 +207,7 @@ impl<T> io::Seek for Cursor<T>
 where
     T: AsRef<[u8]>,
 {
+    /// Implements seek.
     fn seek(&mut self, style: SeekFrom) -> io::Result<u64> {
         let (base_pos, offset) = match style {
             SeekFrom::Start(n) => {
@@ -238,12 +239,14 @@ impl<T> Read for Cursor<T>
 where
     T: AsRef<[u8]>,
 {
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let n = Read::read(&mut self.get_buf()?, buf)?;
         self.pos += n as u64;
         Ok(n)
     }
 
+    /// Implements read exact.
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
         let n = buf.len();
         Read::read_exact(&mut self.get_buf()?, buf)?;
@@ -252,6 +255,10 @@ where
     }
 
     #[inline]
+    /// Implements initializer.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn initializer(&self) -> Initializer {
         unsafe { Initializer::nop() }
     }
@@ -261,6 +268,7 @@ impl<T> Cursor<T>
 where
     T: AsRef<[u8]>,
 {
+    /// Returns get buf.
     fn get_buf(&mut self) -> io::Result<&[u8]> {
         let amt = cmp::min(self.pos, self.inner.as_ref().len() as u64);
         Ok(&self.inner.as_ref()[(amt as usize)..])
@@ -271,15 +279,18 @@ impl<T> BufRead for Cursor<T>
 where
     T: AsRef<[u8]>,
 {
+    /// Implements fill buf.
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         self.get_buf()
     }
+    /// Implements consume.
     fn consume(&mut self, amt: usize) {
         self.pos += amt as u64;
     }
 }
 
 // Non-resizing write implementation
+/// Implements slice write.
 fn slice_write(pos_mut: &mut u64, slice: &mut [u8], buf: &[u8]) -> io::Result<usize> {
     let pos = cmp::min(*pos_mut, slice.len() as u64);
     let amt = (&mut slice[(pos as usize)..]).write(buf)?;
@@ -288,6 +299,7 @@ fn slice_write(pos_mut: &mut u64, slice: &mut [u8], buf: &[u8]) -> io::Result<us
 }
 
 // Resizing write implementation
+/// Implements vec write.
 fn vec_write(pos_mut: &mut u64, vec: &mut Vec<u8>, buf: &[u8]) -> io::Result<usize> {
     let pos: usize = (*pos_mut).try_into().map_err(|_| {
         Error::new(
@@ -318,27 +330,33 @@ fn vec_write(pos_mut: &mut u64, vec: &mut Vec<u8>, buf: &[u8]) -> io::Result<usi
 
 impl Write for Cursor<&mut [u8]> {
     #[inline]
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         slice_write(&mut self.pos, self.inner, buf)
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
 
 impl Write for Cursor<&mut Vec<u8>> {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         vec_write(&mut self.pos, self.inner, buf)
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
 
 impl Write for Cursor<Vec<u8>> {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         vec_write(&mut self.pos, &mut self.inner, buf)
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
@@ -346,9 +364,11 @@ impl Write for Cursor<Vec<u8>> {
 
 impl Write for Cursor<::alloc::boxed::Box<[u8]>> {
     #[inline]
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         slice_write(&mut self.pos, &mut self.inner, buf)
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
@@ -359,6 +379,7 @@ mod tests {
     use crate::io::{Cursor, SeekFrom, prelude::*};
 
     #[test]
+    /// Implements test vec writer.
     fn test_vec_writer() {
         let mut writer = Vec::new();
         assert_eq!(writer.write(&[0]).unwrap(), 1);
@@ -369,6 +390,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test mem writer.
     fn test_mem_writer() {
         let mut writer = Cursor::new(Vec::new());
         assert_eq!(writer.write(&[0]).unwrap(), 1);
@@ -379,6 +401,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test mem mut writer.
     fn test_mem_mut_writer() {
         let mut vec = Vec::new();
         let mut writer = Cursor::new(&mut vec);
@@ -390,6 +413,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test box slice writer.
     fn test_box_slice_writer() {
         let mut writer = Cursor::new(vec![0u8; 9].into_boxed_slice());
         assert_eq!(writer.position(), 0);
@@ -408,6 +432,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buf writer.
     fn test_buf_writer() {
         let mut buf = [0 as u8; 9];
         {
@@ -429,6 +454,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buf writer seek.
     fn test_buf_writer_seek() {
         let mut buf = [0 as u8; 8];
         {
@@ -457,6 +483,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buf writer error.
     fn test_buf_writer_error() {
         let mut buf = [0 as u8; 2];
         let mut writer = Cursor::new(&mut buf[..]);
@@ -466,6 +493,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test mem reader.
     fn test_mem_reader() {
         let mut reader = Cursor::new(vec![0, 1, 2, 3, 4, 5, 6, 7]);
         let mut buf = [];
@@ -488,6 +516,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test boxed slice reader.
     fn test_boxed_slice_reader() {
         let mut reader = Cursor::new(vec![0, 1, 2, 3, 4, 5, 6, 7].into_boxed_slice());
         let mut buf = [];
@@ -510,6 +539,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements read to end.
     fn read_to_end() {
         let mut reader = Cursor::new(vec![0, 1, 2, 3, 4, 5, 6, 7]);
         let mut v = Vec::new();
@@ -518,6 +548,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test slice reader.
     fn test_slice_reader() {
         let in_buf = vec![0, 1, 2, 3, 4, 5, 6, 7];
         let reader = &mut &in_buf[..];
@@ -540,6 +571,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test read exact.
     fn test_read_exact() {
         let in_buf = vec![0, 1, 2, 3, 4, 5, 6, 7];
         let reader = &mut &in_buf[..];
@@ -558,6 +590,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buf reader.
     fn test_buf_reader() {
         let in_buf = vec![0, 1, 2, 3, 4, 5, 6, 7];
         let mut reader = Cursor::new(&in_buf[..]);
@@ -581,6 +614,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements seek past end.
     fn seek_past_end() {
         let buf = [0xff];
         let mut r = Cursor::new(&buf[..]);
@@ -602,6 +636,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements seek past i64.
     fn seek_past_i64() {
         let buf = [0xff];
         let mut r = Cursor::new(&buf[..]);
@@ -651,6 +686,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements seek before 0.
     fn seek_before_0() {
         let buf = [0xff];
         let mut r = Cursor::new(&buf[..]);
@@ -668,6 +704,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test seekable mem writer.
     fn test_seekable_mem_writer() {
         let mut writer = Cursor::new(Vec::<u8>::new());
         assert_eq!(writer.position(), 0);
@@ -702,6 +739,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements vec seek past end.
     fn vec_seek_past_end() {
         let mut r = Cursor::new(Vec::new());
         assert_eq!(r.seek(SeekFrom::Start(10)).unwrap(), 10);
@@ -709,6 +747,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements vec seek before 0.
     fn vec_seek_before_0() {
         let mut r = Cursor::new(Vec::new());
         assert!(r.seek(SeekFrom::End(-2)).is_err());
@@ -716,6 +755,7 @@ mod tests {
 
     #[test]
     #[cfg(target_pointer_width = "32")]
+    /// Implements vec seek and write past usize max.
     fn vec_seek_and_write_past_usize_max() {
         let mut c = Cursor::new(Vec::new());
         c.set_position(<usize>::max_value() as u64 + 1);

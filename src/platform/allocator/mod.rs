@@ -22,6 +22,7 @@ pub struct Allocator {
 }
 
 impl Allocator {
+    /// Creates a new instance.
     pub const fn new() -> Self {
         Allocator {
             inner: SyncUnsafeCell::new(Mutex::new(Dlmalloc::new(sys::System::new()))),
@@ -29,6 +30,7 @@ impl Allocator {
         }
     }
 
+    /// Returns get.
     pub fn get(&self) -> *const Mutex<Dlmalloc> {
         let ptr = self.ptr.load(Ordering::Acquire);
         if !ptr.is_null() {
@@ -38,6 +40,7 @@ impl Allocator {
         self.inner.get()
     }
 
+    /// Sets set.
     pub fn set(&self, mspace: *const Mutex<Dlmalloc>) {
         self.ptr.store(mspace.cast_mut(), Ordering::Release);
     }
@@ -45,6 +48,10 @@ impl Allocator {
 
 unsafe impl GlobalAlloc for Allocator {
     #[inline]
+    /// Implements alloc.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if layout.align() <= align_of::<max_align_t>() {
             unsafe { (*self.get()).lock().malloc(layout.size()) }
@@ -54,11 +61,19 @@ unsafe impl GlobalAlloc for Allocator {
     }
 
     #[inline]
+    /// Implements dealloc.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         unsafe { (*self.get()).lock().free(ptr) }
     }
 
     #[inline]
+    /// Implements alloc zeroed.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         let ptr = unsafe { self.alloc(layout) };
         if !ptr.is_null() && unsafe { (*self.get()).lock().calloc_must_clear(ptr) } {
@@ -68,6 +83,10 @@ unsafe impl GlobalAlloc for Allocator {
     }
 
     #[inline]
+    /// Implements realloc.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         if layout.align() <= align_of::<max_align_t>() {
             unsafe { (*self.get()).lock().realloc(ptr, new_size) }
@@ -88,14 +107,26 @@ unsafe impl GlobalAlloc for Allocator {
     }
 }
 
+/// Implements alloc.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn alloc(size: size_t) -> *mut c_void {
     unsafe { (*ALLOCATOR.get()).lock().malloc(size) }.cast()
 }
 
+/// Implements alloc align.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn alloc_align(size: size_t, alignment: size_t) -> *mut c_void {
     unsafe { (*ALLOCATOR.get()).lock().memalign(alignment, size) }.cast()
 }
 
+/// Implements realloc.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn realloc(ptr: *mut c_void, size: size_t) -> *mut c_void {
     if ptr.is_null() {
         unsafe { (*ALLOCATOR.get()).lock().malloc(size) }.cast()
@@ -104,6 +135,10 @@ pub unsafe fn realloc(ptr: *mut c_void, size: size_t) -> *mut c_void {
     }
 }
 
+/// Implements free.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn free(ptr: *mut c_void) {
     if ptr.is_null() {
         return;
@@ -111,6 +146,10 @@ pub unsafe fn free(ptr: *mut c_void) {
     unsafe { (*ALLOCATOR.get()).lock().free(ptr.cast()) }
 }
 
+/// Implements alloc usable size.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn alloc_usable_size(ptr: *mut c_void) -> size_t {
     if ptr.is_null() {
         return 0;

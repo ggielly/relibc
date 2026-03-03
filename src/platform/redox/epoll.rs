@@ -15,6 +15,7 @@ use syscall::{
     flag::EVENT_READ,
 };
 
+/// Implements epoll to event flags.
 fn epoll_to_event_flags(epoll: c_uint) -> syscall::EventFlags {
     let mut event_flags = syscall::EventFlags::empty();
 
@@ -35,6 +36,7 @@ fn epoll_to_event_flags(epoll: c_uint) -> syscall::EventFlags {
     event_flags
 }
 
+/// Implements event flags to epoll.
 fn event_flags_to_epoll(flags: syscall::EventFlags) -> c_uint {
     let mut epoll = 0;
 
@@ -50,10 +52,15 @@ fn event_flags_to_epoll(flags: syscall::EventFlags) -> c_uint {
 }
 
 impl PalEpoll for Sys {
+    /// Implements epoll create1.
     fn epoll_create1(flags: c_int) -> Result<c_int, Errno> {
         Sys::open(c"/scheme/event".into(), O_RDWR | flags, 0)
     }
 
+    /// Implements epoll ctl.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn epoll_ctl(
         epfd: c_int,
         op: c_int,
@@ -89,6 +96,10 @@ impl PalEpoll for Sys {
         Ok(())
     }
 
+    /// Implements epoll pwait.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn epoll_pwait(
         epfd: c_int,
         events: *mut epoll_event,

@@ -22,6 +22,7 @@ pub type RlctSempahore = crate::sync::Semaphore;
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sem_close.html>.
 // #[unsafe(no_mangle)]
+/// Implements sem close.
 pub unsafe extern "C" fn sem_close(sem: *mut sem_t) -> c_int {
     todo!("named semaphores")
 }
@@ -52,6 +53,7 @@ pub unsafe extern "C" fn sem_init(sem: *mut sem_t, _pshared: c_int, value: c_uin
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sem_open.html>.
 // TODO: va_list
 // #[unsafe(no_mangle)]
+/// Implements sem open.
 pub unsafe extern "C" fn sem_open(
     name: *const c_char,
     oflag: c_int, /* (va_list) value: c_uint */
@@ -77,6 +79,7 @@ pub unsafe extern "C" fn sem_trywait(sem: *mut sem_t) -> c_int {
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/sem_unlink.html>.
 // #[unsafe(no_mangle)]
+/// Implements sem unlink.
 pub unsafe extern "C" fn sem_unlink(name: *const c_char) -> c_int {
     todo!("named semaphores")
 }

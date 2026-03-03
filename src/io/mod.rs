@@ -285,6 +285,7 @@ use core::{cmp, fmt, ptr, str};
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
 #[inline]
+/// Implements last os error.
 pub fn last_os_error() -> Error {
     Error::last_os_error()
 }
@@ -295,6 +296,7 @@ struct Guard<'a> {
 }
 
 impl<'a> Drop for Guard<'a> {
+    /// Implements drop.
     fn drop(&mut self) {
         unsafe {
             self.buf.set_len(self.len);
@@ -552,6 +554,7 @@ pub trait Read {
     /// ```
     fn read(&mut self, buf: &mut [u8]) -> Result<usize>;
 
+    /// Implements read out.
     fn read_out(&mut self, mut out: Out<[u8]>) -> Result<usize> {
         // XXX: Technically incorrect but hopefully not UB
         let slice: &mut [u8] = unsafe { &mut *out.as_mut_ptr() };
@@ -920,6 +923,7 @@ pub trait Read {
     }
 }
 
+/// Implements read one byte.
 fn read_one_byte(reader: &mut dyn Read) -> Option<Result<u8>> {
     let mut buf = [0];
     loop {
@@ -1377,6 +1381,7 @@ impl<T, U> Chain<T, U> {
 }
 
 impl<T: Read, U: Read> Read for Chain<T, U> {
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if !self.done_first {
             match self.first.read(buf)? {
@@ -1389,6 +1394,10 @@ impl<T: Read, U: Read> Read for Chain<T, U> {
         self.second.read(buf)
     }
 
+    /// Implements initializer.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn initializer(&self) -> Initializer {
         let initializer = unsafe { self.first.initializer() };
         if initializer.should_initialize() {
@@ -1400,6 +1409,7 @@ impl<T: Read, U: Read> Read for Chain<T, U> {
 }
 
 impl<T: BufRead, U: BufRead> BufRead for Chain<T, U> {
+    /// Implements fill buf.
     fn fill_buf(&mut self) -> Result<&[u8]> {
         if !self.done_first {
             match self.first.fill_buf()? {
@@ -1412,6 +1422,7 @@ impl<T: BufRead, U: BufRead> BufRead for Chain<T, U> {
         self.second.fill_buf()
     }
 
+    /// Implements consume.
     fn consume(&mut self, amt: usize) {
         if !self.done_first {
             self.first.consume(amt)
@@ -1570,6 +1581,7 @@ impl<T> Take<T> {
 }
 
 impl<T: Read> Read for Take<T> {
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         // Don't call into inner reader at all at EOF because it may still block
         if self.limit == 0 {
@@ -1582,10 +1594,15 @@ impl<T: Read> Read for Take<T> {
         Ok(n)
     }
 
+    /// Implements initializer.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn initializer(&self) -> Initializer {
         unsafe { self.inner.initializer() }
     }
 
+    /// Implements read to end.
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> Result<usize> {
         let reservation_size = cmp::min(self.limit, 32) as usize;
 
@@ -1594,6 +1611,7 @@ impl<T: Read> Read for Take<T> {
 }
 
 impl<T: BufRead> BufRead for Take<T> {
+    /// Implements fill buf.
     fn fill_buf(&mut self) -> Result<&[u8]> {
         // Don't call into inner reader at all at EOF because it may still block
         if self.limit == 0 {
@@ -1605,6 +1623,7 @@ impl<T: BufRead> BufRead for Take<T> {
         Ok(&buf[..cap])
     }
 
+    /// Implements consume.
     fn consume(&mut self, amt: usize) {
         // Don't let callers reset the limit by passing an overlarge value
         let amt = cmp::min(amt as u64, self.limit) as usize;
@@ -1815,6 +1834,7 @@ pub trait Write {
         }
 
         impl<'a, T: Write + ?Sized> fmt::Write for Adaptor<'a, T> {
+            /// Implements write str.
             fn write_str(&mut self, s: &str) -> fmt::Result {
                 match self.inner.write_all(s.as_bytes()) {
                     Ok(()) => Ok(()),
@@ -1955,6 +1975,7 @@ pub struct Bytes<R> {
 impl<R: Read> Iterator for Bytes<R> {
     type Item = Result<u8>;
 
+    /// Implements next.
     fn next(&mut self) -> Option<Result<u8>> {
         read_one_byte(&mut self.inner)
     }
@@ -1976,6 +1997,7 @@ pub struct Split<B> {
 impl<B: BufRead> Iterator for Split<B> {
     type Item = Result<Vec<u8>>;
 
+    /// Implements next.
     fn next(&mut self) -> Option<Result<Vec<u8>>> {
         let mut buf = Vec::new();
         match self.buf.read_until(self.delim, &mut buf) {
@@ -2005,6 +2027,7 @@ pub struct Lines<B> {
 impl<B: BufRead> Iterator for Lines<B> {
     type Item = Result<String>;
 
+    /// Implements next.
     fn next(&mut self) -> Option<Result<String>> {
         let mut buf = String::new();
         match self.buf.read_line(&mut buf) {
@@ -2031,6 +2054,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(target_os = "emscripten", ignore)]
+    /// Implements read until.
     fn read_until() {
         let mut buf = Cursor::new(&b"12"[..]);
         let mut v = Vec::new();
@@ -2050,6 +2074,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements split.
     fn split() {
         let buf = Cursor::new(&b"12"[..]);
         let mut s = buf.split(b'3');
@@ -2064,6 +2089,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements read line.
     fn read_line() {
         let mut buf = Cursor::new(&b"12"[..]);
         let mut v = String::new();
@@ -2097,6 +2123,7 @@ mod tests {
     // }
 
     #[test]
+    /// Implements read to end.
     fn read_to_end() {
         let mut c = Cursor::new(&b""[..]);
         let mut v = Vec::new();
@@ -2118,6 +2145,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements read to string.
     fn read_to_string() {
         let mut c = Cursor::new(&b""[..]);
         let mut v = String::new();
@@ -2135,6 +2163,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements read exact.
     fn read_exact() {
         let mut buf = [0; 4];
 
@@ -2156,6 +2185,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements read exact slice.
     fn read_exact_slice() {
         let mut buf = [0; 4];
 
@@ -2184,18 +2214,22 @@ mod tests {
     }
 
     #[test]
+    /// Implements take eof.
     fn take_eof() {
         struct R;
 
         impl Read for R {
+            /// Implements read.
             fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
                 Err(io::Error::new(io::ErrorKind::Other, ""))
             }
         }
         impl BufRead for R {
+            /// Implements fill buf.
             fn fill_buf(&mut self) -> io::Result<&[u8]> {
                 Err(io::Error::new(io::ErrorKind::Other, ""))
             }
+            /// Implements consume.
             fn consume(&mut self, _amt: usize) {}
         }
 
@@ -2231,6 +2265,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements chain bufread.
     fn chain_bufread() {
         let testdata = b"ABCDEFGHIJKL";
         let chain1 = (&testdata[..3])
@@ -2244,6 +2279,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements chain zero length read is not eof.
     fn chain_zero_length_read_is_not_eof() {
         let a = b"A";
         let b = b"B";

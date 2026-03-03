@@ -156,6 +156,7 @@ impl<R: Seek> BufReader<R> {
 }
 
 impl<R: Read> Read for BufReader<R> {
+    /// Implements read.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         // If we don't have any buffered data and we're doing a massive read
         // (larger than our internal buffer), bypass our internal buffer
@@ -172,12 +173,17 @@ impl<R: Read> Read for BufReader<R> {
     }
 
     // we can't skip unconditionally because of the large buffer case in read.
+    /// Implements initializer.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn initializer(&self) -> Initializer {
         unsafe { self.inner.initializer() }
     }
 }
 
 impl<R: Read> BufRead for BufReader<R> {
+    /// Implements fill buf.
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         // If we've reached the end of our internal buffer then we need to fetch
         // some more data from the underlying reader.
@@ -191,6 +197,7 @@ impl<R: Read> BufRead for BufReader<R> {
         Ok(&self.buf[self.pos..self.cap])
     }
 
+    /// Implements consume.
     fn consume(&mut self, amt: usize) {
         self.pos = cmp::min(self.pos + amt, self.cap);
     }
@@ -391,6 +398,7 @@ impl<W: Write> BufWriter<W> {
         self.inner.as_ref().unwrap()
     }
 
+    /// Implements flush buf.
     fn flush_buf(&mut self) -> io::Result<()> {
         let mut written = 0;
         let len = self.buf.len();
@@ -469,6 +477,7 @@ impl<W: Write> BufWriter<W> {
 }
 
 impl<W: Write> Write for BufWriter<W> {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if self.buf.len() + buf.len() > self.buf.capacity() {
             self.flush_buf()?;
@@ -482,6 +491,7 @@ impl<W: Write> Write for BufWriter<W> {
             Write::write(&mut self.buf, buf)
         }
     }
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         self.flush_buf().and_then(|()| self.get_mut().flush())
     }
@@ -491,6 +501,7 @@ impl<W: Write> fmt::Debug for BufWriter<W>
 where
     W: fmt::Debug,
 {
+    /// Implements fmt.
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BufWriter")
             .field("writer", &self.inner.as_ref().unwrap())
@@ -668,6 +679,7 @@ impl<W: Write> LineWriter<W> {
 }
 
 impl<W: Write> Write for LineWriter<W> {
+    /// Implements write.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if self.need_flush {
             self.flush()?;
@@ -703,6 +715,7 @@ impl<W: Write> Write for LineWriter<W> {
         }
     }
 
+    /// Implements flush.
     fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()?;
         self.need_flush = false;
@@ -724,6 +737,7 @@ mod tests {
     }
 
     impl Read for ShortReader {
+        /// Implements read.
         fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
             if self.lengths.is_empty() {
                 Ok(0)
@@ -734,6 +748,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buffered reader.
     fn test_buffered_reader() {
         let inner: &[u8] = &[5, 6, 7, 0, 1, 2, 3, 4];
         let mut reader = BufReader::with_capacity(2, inner);
@@ -771,6 +786,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buffered reader seek.
     fn test_buffered_reader_seek() {
         let inner: &[u8] = &[5, 6, 7, 0, 1, 2, 3, 4];
         let mut reader = BufReader::with_capacity(2, io::Cursor::new(inner));
@@ -786,6 +802,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buffered reader seek relative.
     fn test_buffered_reader_seek_relative() {
         let inner: &[u8] = &[5, 6, 7, 0, 1, 2, 3, 4];
         let mut reader = BufReader::with_capacity(2, io::Cursor::new(inner));
@@ -803,12 +820,14 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buffered reader seek underflow.
     fn test_buffered_reader_seek_underflow() {
         // gimmick reader that yields its position modulo 256 for each byte
         struct PositionReader {
             pos: u64,
         }
         impl Read for PositionReader {
+            /// Implements read.
             fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
                 let len = buf.len();
                 for x in buf {
@@ -819,6 +838,7 @@ mod tests {
             }
         }
         impl Seek for PositionReader {
+            /// Implements seek.
             fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
                 match pos {
                     SeekFrom::Start(n) => {
@@ -855,6 +875,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buffered writer.
     fn test_buffered_writer() {
         let inner = Vec::new();
         let mut writer = BufWriter::with_capacity(2, inner);
@@ -889,6 +910,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buffered writer inner flushes.
     fn test_buffered_writer_inner_flushes() {
         let mut w = BufWriter::with_capacity(3, Vec::new());
         w.write(&[0, 1]).unwrap();
@@ -898,6 +920,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test buffered writer seek.
     fn test_buffered_writer_seek() {
         let mut w = BufWriter::with_capacity(3, io::Cursor::new(Vec::new()));
         w.write_all(&[0, 1, 2, 3, 4, 5]).unwrap();
@@ -913,6 +936,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test read until.
     fn test_read_until() {
         let inner: &[u8] = &[0, 1, 2, 1, 0];
         let mut reader = BufReader::with_capacity(2, inner);
@@ -934,15 +958,18 @@ mod tests {
     }
 
     #[test]
+    /// Implements test line buffer fail flush.
     fn test_line_buffer_fail_flush() {
         // Issue #32085
         struct FailFlushWriter<'a>(&'a mut Vec<u8>);
 
         impl<'a> Write for FailFlushWriter<'a> {
+            /// Implements write.
             fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
                 self.0.extend_from_slice(buf);
                 Ok(buf.len())
             }
+            /// Implements flush.
             fn flush(&mut self) -> io::Result<()> {
                 Err(io::Error::new(io::ErrorKind::Other, "flush failed"))
             }
@@ -962,6 +989,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test line buffer.
     fn test_line_buffer() {
         let mut writer = LineWriter::new(Vec::new());
         writer.write(&[0]).unwrap();
@@ -979,6 +1007,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements test read line.
     fn test_read_line() {
         let in_buf: &[u8] = b"a\nb\nc";
         let mut reader = BufReader::with_capacity(2, in_buf);
@@ -1008,6 +1037,7 @@ mod tests {
     // }
 
     #[test]
+    /// Implements test short reads.
     fn test_short_reads() {
         let inner = ShortReader {
             lengths: vec![0, 1, 2, 0, 1, 0],
@@ -1025,13 +1055,16 @@ mod tests {
 
     #[test]
     #[should_panic]
+    /// Implements dont panic in drop on panicked flush.
     fn dont_panic_in_drop_on_panicked_flush() {
         struct FailFlushWriter;
 
         impl Write for FailFlushWriter {
+            /// Implements write.
             fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
                 Ok(buf.len())
             }
+            /// Implements flush.
             fn flush(&mut self) -> io::Result<()> {
                 Err(io::Error::last_os_error())
             }
@@ -1089,6 +1122,7 @@ mod tests {
     }
 
     impl Write for AcceptOneThenFail {
+        /// Implements write.
         fn write(&mut self, data: &[u8]) -> io::Result<usize> {
             if !self.written {
                 assert_eq!(data, b"a\nb\n");
@@ -1099,6 +1133,7 @@ mod tests {
             }
         }
 
+        /// Implements flush.
         fn flush(&mut self) -> io::Result<()> {
             assert!(self.written);
             assert!(!self.flushed);
@@ -1108,6 +1143,7 @@ mod tests {
     }
 
     #[test]
+    /// Implements erroneous flush retried.
     fn erroneous_flush_retried() {
         let a = AcceptOneThenFail {
             written: false,

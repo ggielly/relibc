@@ -23,7 +23,12 @@ pub const FNM_CASEFOLD: c_int = 8;
 pub const FNM_IGNORECASE: c_int = FNM_CASEFOLD;
 // TODO: FNM_EXTMATCH
 
+/// Implements tokenize.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn tokenize(mut pattern: *const u8, flags: c_int) -> Tree {
+    /// Implements any.
     fn any(leading: bool, flags: c_int) -> Token {
         let mut list = Vec::new();
         if flags & FNM_PATHNAME == FNM_PATHNAME {
@@ -34,10 +39,12 @@ unsafe fn tokenize(mut pattern: *const u8, flags: c_int) -> Tree {
         }
         Token::OneOf { invert: true, list }
     }
+    /// Implements can push.
     fn can_push(leading: bool, flags: c_int, c: u8) -> bool {
         (c != b'/' || flags & FNM_PATHNAME != FNM_PATHNAME)
             && (c != b'.' || !leading || flags & FNM_PERIOD != FNM_PERIOD)
     }
+    /// Checks whether is leading.
     fn is_leading(flags: c_int, c: u8) -> bool {
         c == b'/' && flags & FNM_PATHNAME == FNM_PATHNAME
     }

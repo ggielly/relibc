@@ -21,6 +21,7 @@ pub enum WaitResult {
 }
 
 impl Barrier {
+    /// Creates a new instance.
     pub fn new(count: NonZeroU32) -> Self {
         Self {
             original_count: count,
@@ -31,6 +32,7 @@ impl Barrier {
             cvar: crate::header::pthread::RlctCond::new(),
         }
     }
+    /// Implements wait.
     pub fn wait(&self) -> WaitResult {
         let mut guard = self.lock.lock();
         let gen_id = guard.gen_id;

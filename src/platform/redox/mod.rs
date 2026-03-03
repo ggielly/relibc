@@ -76,11 +76,13 @@ static mut BRK_CUR: *mut c_void = ptr::null_mut();
 static mut BRK_END: *mut c_void = ptr::null_mut();
 
 const PAGE_SIZE: usize = 4096;
+/// Implements round up to page size.
 fn round_up_to_page_size(val: usize) -> Option<usize> {
     val.checked_add(PAGE_SIZE)
         .map(|val| (val - 1) / PAGE_SIZE * PAGE_SIZE)
 }
 
+/// Implements cvt uid.
 fn cvt_uid(id: c_int) -> Result<Option<u32>> {
     if id == -1 {
         return Ok(None);
@@ -106,6 +108,7 @@ static CLONE_LOCK: RwLock<()> = RwLock::new(());
 pub struct Sys;
 
 impl Pal for Sys {
+    /// Implements access.
     fn access(path: CStr, mode: c_int) -> Result<()> {
         let fd = FdGuard::new(Sys::open(path, fcntl::O_PATH | fcntl::O_CLOEXEC, 0)? as usize);
 
@@ -136,6 +139,10 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements brk.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn brk(addr: *mut c_void) -> Result<*mut c_void> {
         // On first invocation, allocate a buffer for brk
         if unsafe { BRK_CUR }.is_null() {
@@ -172,22 +179,26 @@ impl Pal for Sys {
         }
     }
 
+    /// Implements chdir.
     fn chdir(path: CStr) -> Result<()> {
         let path = path.to_str().map_err(|_| Errno(EINVAL))?;
         path::chdir(path)?;
         Ok(())
     }
 
+    /// Implements chmod.
     fn chmod(path: CStr, mode: mode_t) -> Result<()> {
         let file = File::open(path, fcntl::O_PATH | fcntl::O_CLOEXEC)?;
         Self::fchmod(*file, mode)
     }
 
+    /// Implements chown.
     fn chown(path: CStr, owner: uid_t, group: gid_t) -> Result<()> {
         let file = File::open(path, fcntl::O_PATH | fcntl::O_CLOEXEC)?;
         Self::fchown(*file, owner, group)
     }
 
+    /// Implements clock getres.
     fn clock_getres(clk_id: clockid_t, res: Option<Out<timespec>>) -> Result<()> {
         let path = format!("/scheme/time/{clk_id}/getres");
         let timerfd = FdGuard::open(&path, syscall::O_RDONLY)?;
@@ -212,34 +223,47 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements clock gettime.
     fn clock_gettime(clk_id: clockid_t, tp: Out<timespec>) -> Result<()> {
         libredox::clock_gettime(clk_id as usize, tp)?;
         Ok(())
     }
 
+    /// Implements clock settime.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn clock_settime(clk_id: clockid_t, tp: *const timespec) -> Result<()> {
         todo_skip!(0, "clock_settime({}, {:p}): not implemented", clk_id, tp);
         Err(Errno(ENOSYS))
     }
 
+    /// Implements close.
     fn close(fd: c_int) -> Result<()> {
         syscall::close(fd as usize)?;
         Ok(())
     }
 
+    /// Implements dup.
     fn dup(fd: c_int) -> Result<c_int> {
         Ok(syscall::dup(fd as usize, &[])? as c_int)
     }
 
+    /// Implements dup2.
     fn dup2(fd1: c_int, fd2: c_int) -> Result<c_int> {
         Ok(syscall::dup2(fd1 as usize, fd2 as usize, &[])? as c_int)
     }
 
+    /// Implements exit.
     fn exit(status: c_int) -> ! {
         let _ = redox_rt::sys::posix_exit(status);
         loop {}
     }
 
+    /// Implements execve.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn execve(path: CStr, argv: *const *mut c_char, envp: *const *mut c_char) -> Result<()> {
         self::exec::execve(
             Executable::AtPath(path),
@@ -248,6 +272,10 @@ impl Pal for Sys {
         )?;
         unreachable!()
     }
+    /// Implements fexecve.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn fexecve(
         fildes: c_int,
         argv: *const *mut c_char,
@@ -264,16 +292,19 @@ impl Pal for Sys {
         unreachable!()
     }
 
+    /// Implements fchdir.
     fn fchdir(fd: c_int) -> Result<()> {
         path::fchdir(fd)?;
         Ok(())
     }
 
+    /// Implements fchmod.
     fn fchmod(fd: c_int, mode: mode_t) -> Result<()> {
         syscall::fchmod(fd as usize, mode as u16)?;
         Ok(())
     }
 
+    /// Implements fchmodat.
     fn fchmodat(dirfd: c_int, path: Option<CStr>, mode: mode_t, flags: c_int) -> Result<()> {
         const MASK: c_int = !(fcntl::AT_SYMLINK_NOFOLLOW | fcntl::AT_EMPTY_PATH);
         if MASK & flags != 0 {
@@ -287,11 +318,13 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements fchown.
     fn fchown(fd: c_int, owner: uid_t, group: gid_t) -> Result<()> {
         syscall::fchown(fd as usize, owner as u32, group as u32)?;
         Ok(())
     }
 
+    /// Implements fcntl.
     fn fcntl(fd: c_int, cmd: c_int, args: c_ulonglong) -> Result<c_int> {
         match cmd {
             F_SETLK | F_OFD_SETLK => {
@@ -406,17 +439,23 @@ impl Pal for Sys {
         Ok(syscall::fcntl(fd as usize, cmd as usize, args as usize)? as c_int)
     }
 
+    /// Implements fdatasync.
     fn fdatasync(fd: c_int) -> Result<()> {
         // TODO: "Needs" syscall update
         syscall::fsync(fd as usize)?;
         Ok(())
     }
 
+    /// Implements flock.
     fn flock(_fd: c_int, _operation: c_int) -> Result<()> {
         // TODO: Redox does not have file locking yet
         Ok(())
     }
 
+    /// Implements fork.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn fork() -> Result<pid_t> {
         // TODO: Find way to avoid lock.
         let _guard = CLONE_LOCK.write();
@@ -424,6 +463,7 @@ impl Pal for Sys {
         Ok(redox_rt::proc::fork_impl(&redox_rt::proc::ForkArgs::Managed)? as pid_t)
     }
 
+    /// Implements fstat.
     fn fstat(fildes: c_int, mut buf: Out<stat>) -> Result<()> {
         unsafe {
             libredox::fstat(fildes as usize, buf.as_mut_ptr())?;
@@ -431,6 +471,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements fstatat.
     fn fstatat(dirfd: c_int, path: Option<CStr>, buf: Out<stat>, flags: c_int) -> Result<()> {
         // `path` should be non-null.
         let path = path.ok_or(Errno(EFAULT))?;
@@ -476,6 +517,7 @@ impl Pal for Sys {
         fstat_res
     }
 
+    /// Implements fstatvfs.
     fn fstatvfs(fildes: c_int, mut buf: Out<statvfs>) -> Result<()> {
         unsafe {
             libredox::fstatvfs(fildes as usize, buf.as_mut_ptr())?;
@@ -483,17 +525,23 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements fsync.
     fn fsync(fd: c_int) -> Result<()> {
         syscall::fsync(fd as usize)?;
         Ok(())
     }
 
+    /// Implements ftruncate.
     fn ftruncate(fd: c_int, len: off_t) -> Result<()> {
         syscall::ftruncate(fd as usize, len as usize)?;
         Ok(())
     }
 
     #[inline]
+    /// Implements futex wait.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn futex_wait(addr: *mut u32, val: u32, deadline: Option<&timespec>) -> Result<()> {
         let deadline = deadline.map(|d| syscall::TimeSpec {
             tv_sec: d.tv_sec,
@@ -503,25 +551,39 @@ impl Pal for Sys {
         Ok(())
     }
     #[inline]
+    /// Implements futex wake.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn futex_wake(addr: *mut u32, num: u32) -> Result<u32> {
         Ok(unsafe { redox_rt::sys::sys_futex_wake(addr, num) }?)
     }
 
+    /// Implements futimens.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn futimens(fd: c_int, times: *const timespec) -> Result<()> {
         (unsafe { libredox::futimens(fd as usize, times) })?;
         Ok(())
     }
 
+    /// Implements utimens.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn utimens(path: CStr, times: *const timespec) -> Result<()> {
         let file = File::open(path, fcntl::O_PATH | fcntl::O_CLOEXEC)?;
         unsafe { Self::futimens(*file, times) }
     }
 
+    /// Returns getcwd.
     fn getcwd(buf: Out<[u8]>) -> Result<()> {
         path::getcwd(buf)?;
         Ok(())
     }
 
+    /// Returns getdents.
     fn getdents(fd: c_int, buf: &mut [u8], opaque: u64) -> Result<usize> {
         //println!("GETDENTS {} into ({:p}+{})", fd, buf.as_ptr(), buf.len());
 
@@ -582,11 +644,16 @@ impl Pal for Sys {
         Ok(record_len.into())
     }
 
+    /// Implements dir seek.
     fn dir_seek(_fd: c_int, _off: u64) -> Result<()> {
         // Redox getdents takes an explicit (opaque) offset, so this is a no-op.
         Ok(())
     }
     // NOTE: fn is unsafe, but this just means we can assume more things. impl is safe
+    /// Implements dent reclen offset.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn dent_reclen_offset(this_dent: &[u8], offset: usize) -> Option<(u16, u64)> {
         let mut header = DirentHeader::default();
         header.copy_from_slice(&this_dent.get(..size_of::<DirentHeader>())?);
@@ -599,45 +666,55 @@ impl Pal for Sys {
         Some((header.record_len, header.next_opaque_id))
     }
 
+    /// Returns getegid.
     fn getegid() -> gid_t {
         redox_rt::sys::posix_getresugid().egid as gid_t
     }
 
+    /// Returns geteuid.
     fn geteuid() -> uid_t {
         redox_rt::sys::posix_getresugid().euid as uid_t
     }
 
+    /// Returns getgid.
     fn getgid() -> gid_t {
         redox_rt::sys::posix_getresugid().rgid as gid_t
     }
 
+    /// Returns getgroups.
     fn getgroups(list: Out<[gid_t]>) -> Result<c_int> {
         // TODO
         todo_skip!(0, "getgroups({}, {:p}): not implemented", list.len(), list);
         Err(Errno(ENOSYS))
     }
 
+    /// Returns getpagesize.
     fn getpagesize() -> usize {
         PAGE_SIZE
     }
 
+    /// Returns getpgid.
     fn getpgid(pid: pid_t) -> Result<pid_t> {
         Ok(redox_rt::sys::posix_getpgid(pid as usize)? as pid_t)
     }
 
+    /// Returns getpid.
     fn getpid() -> pid_t {
         redox_rt::sys::posix_getpid() as pid_t
     }
 
+    /// Returns getppid.
     fn getppid() -> pid_t {
         redox_rt::sys::posix_getppid() as pid_t
     }
 
+    /// Returns getpriority.
     fn getpriority(which: c_int, who: id_t) -> Result<c_int> {
         todo_skip!(0, "getpriority({}, {}): not implemented", which, who);
         Err(Errno(ENOSYS))
     }
 
+    /// Returns getrandom.
     fn getrandom(buf: &mut [u8], flags: c_uint) -> Result<usize> {
         let path = if flags & sys_random::GRND_RANDOM != 0 {
             //TODO: /dev/random equivalent
@@ -656,6 +733,7 @@ impl Pal for Sys {
         Ok(fd.read(buf)?)
     }
 
+    /// Returns getresgid.
     fn getresgid(
         rgid_out: Option<Out<gid_t>>,
         egid_out: Option<Out<gid_t>>,
@@ -675,6 +753,7 @@ impl Pal for Sys {
         }
         Ok(())
     }
+    /// Returns getresuid.
     fn getresuid(
         ruid_out: Option<Out<uid_t>>,
         euid_out: Option<Out<uid_t>>,
@@ -695,6 +774,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Returns getrlimit.
     fn getrlimit(resource: c_int, mut rlim: Out<rlimit>) -> Result<()> {
         todo_skip!(0, "getrlimit({}, {:p}): not implemented", resource, rlim);
         rlim.write(rlimit {
@@ -704,20 +784,27 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Sets setrlimit.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn setrlimit(resource: c_int, rlim: *const rlimit) -> Result<()> {
         todo_skip!(0, "setrlimit({}, {:p}): not implemented", resource, rlim);
         Err(Errno(EPERM))
     }
 
+    /// Returns getrusage.
     fn getrusage(who: c_int, r_usage: Out<rusage>) -> Result<()> {
         todo_skip!(0, "getrusage({}, {:p}): not implemented", who, r_usage);
         Ok(())
     }
 
+    /// Returns getsid.
     fn getsid(pid: pid_t) -> Result<pid_t> {
         Ok(redox_rt::sys::posix_getsid(pid as usize)? as _)
     }
 
+    /// Returns gettid.
     fn gettid() -> pid_t {
         // This is used by pthread mutexes for reentrant checks and must be nonzero
         // and unique for each thread in the same process (but not cross-process)
@@ -729,6 +816,7 @@ impl Pal for Sys {
             .unwrap()
     }
 
+    /// Returns gettimeofday.
     fn gettimeofday(mut tp: Out<timeval>, tzp: Option<Out<timezone>>) -> Result<()> {
         let mut redox_tp = redox_timespec::default();
         syscall::clock_gettime(syscall::CLOCK_REALTIME, &mut redox_tp)?;
@@ -746,10 +834,12 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Returns getuid.
     fn getuid() -> uid_t {
         redox_rt::sys::posix_getresugid().ruid as uid_t
     }
 
+    /// Implements lchown.
     fn lchown(path: CStr, owner: uid_t, group: gid_t) -> Result<()> {
         // TODO: Is it correct for regular chown to use O_PATH? On Linux the meaning of that flag
         // is to forbid file operations, including fchown.
@@ -759,6 +849,7 @@ impl Pal for Sys {
         Self::fchown(*file, owner, group)
     }
 
+    /// Implements link.
     fn link(oldpath: CStr, newpath: CStr) -> Result<()> {
         let newpath = newpath.to_str().map_err(|_| Errno(EINVAL))?;
 
@@ -767,10 +858,12 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements lseek.
     fn lseek(fd: c_int, offset: off_t, whence: c_int) -> Result<off_t> {
         Ok(syscall::lseek(fd as usize, offset as isize, whence as usize)? as off_t)
     }
 
+    /// Implements mkdirat.
     fn mkdirat(dir_fd: c_int, path_name: CStr, mode: mode_t) -> Result<()> {
         File::createat(
             dir_fd,
@@ -781,6 +874,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements mkdir.
     fn mkdir(path: CStr, mode: mode_t) -> Result<()> {
         File::create(
             path,
@@ -790,6 +884,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements mkfifoat.
     fn mkfifoat(dir_fd: c_int, path_name: CStr, mode: mode_t) -> Result<()> {
         Sys::mknodat(
             dir_fd,
@@ -799,30 +894,45 @@ impl Pal for Sys {
         )
     }
 
+    /// Implements mkfifo.
     fn mkfifo(path: CStr, mode: mode_t) -> Result<()> {
         Sys::mknod(path, syscall::MODE_FIFO as mode_t | (mode & 0o777), 0)
     }
 
+    /// Implements mknodat.
     fn mknodat(dir_fd: c_int, path_name: CStr, mode: mode_t, dev: dev_t) -> Result<()> {
         File::createat(dir_fd, path_name, fcntl::O_CREAT | fcntl::O_CLOEXEC, mode)?;
         Ok(())
     }
 
+    /// Implements mknod.
     fn mknod(path: CStr, mode: mode_t, dev: dev_t) -> Result<(), Errno> {
         File::create(path, fcntl::O_CREAT | fcntl::O_CLOEXEC, mode)?;
         Ok(())
     }
 
+    /// Implements mlock.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn mlock(addr: *const c_void, len: usize) -> Result<()> {
         // Redox never swaps
         Ok(())
     }
 
+    /// Implements mlockall.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn mlockall(flags: c_int) -> Result<()> {
         // Redox never swaps
         Ok(())
     }
 
+    /// Implements mmap.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn mmap(
         addr: *mut c_void,
         len: usize,
@@ -855,6 +965,10 @@ impl Pal for Sys {
         } as *mut c_void)
     }
 
+    /// Implements mremap.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn mremap(
         addr: *mut c_void,
         len: usize,
@@ -865,6 +979,10 @@ impl Pal for Sys {
         Err(Errno(ENOSYS))
     }
 
+    /// Implements mprotect.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn mprotect(addr: *mut c_void, len: usize, prot: c_int) -> Result<()> {
         let Some(len) = round_up_to_page_size(len) else {
             return Err(Errno(ENOMEM));
@@ -876,6 +994,10 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements msync.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn msync(addr: *mut c_void, len: usize, flags: c_int) -> Result<()> {
         todo_skip!(
             0,
@@ -894,16 +1016,28 @@ impl Pal for Sys {
         */
     }
 
+    /// Implements munlock.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn munlock(addr: *const c_void, len: usize) -> Result<()> {
         // Redox never swaps
         Ok(())
     }
 
+    /// Implements munlockall.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn munlockall() -> Result<()> {
         // Redox never swaps
         Ok(())
     }
 
+    /// Implements munmap.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn munmap(addr: *mut c_void, len: usize) -> Result<()> {
         // 0 is invalid per spec
         if len == 0 {
@@ -916,6 +1050,10 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements madvise.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn madvise(addr: *mut c_void, len: usize, flags: c_int) -> Result<()> {
         todo_skip!(
             0,
@@ -927,6 +1065,10 @@ impl Pal for Sys {
         Err(Errno(ENOSYS))
     }
 
+    /// Implements nanosleep.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn nanosleep(rqtp: *const timespec, rmtp: *mut timespec) -> Result<()> {
         let redox_rqtp = unsafe { redox_timespec::from(&*rqtp) };
         let mut redox_rmtp: redox_timespec;
@@ -950,6 +1092,7 @@ impl Pal for Sys {
         }
     }
 
+    /// Implements open.
     fn open(path: CStr, oflag: c_int, mode: mode_t) -> Result<c_int> {
         let path = path.to_str().map_err(|_| Errno(EINVAL))?;
 
@@ -965,6 +1108,7 @@ impl Pal for Sys {
         Ok(libredox::open(path, oflag, effective_mode)? as c_int)
     }
 
+    /// Implements openat.
     fn openat(dirfd: c_int, path: CStr, oflag: c_int, mode: mode_t) -> Result<c_int> {
         let path = path.to_str().map_err(|_| Errno(EINVAL))?;
 
@@ -980,11 +1124,13 @@ impl Pal for Sys {
         Ok(libredox::openat(dirfd, path, oflag, effective_mode)? as c_int)
     }
 
+    /// Implements pipe2.
     fn pipe2(mut fds: Out<[c_int; 2]>, flags: c_int) -> Result<()> {
         fds.write(extra::pipe2(flags as usize)?);
         Ok(())
     }
 
+    /// Implements posix fallocate.
     fn posix_fallocate(fd: c_int, offset: u64, length: NonZeroU64) -> Result<()> {
         // Redox doesn't actually have flock yet but presumably the file will need to be locked to
         // avoid accidentally truncating it if the length changes.
@@ -1015,6 +1161,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements posix getdents.
     fn posix_getdents(fildes: c_int, buf: &mut [u8]) -> Result<usize> {
         let current_offset = Self::lseek(fildes, 0, SEEK_CUR)? as u64;
         let bytes_read = Self::getdents(fildes, buf, current_offset)?;
@@ -1041,6 +1188,10 @@ impl Pal for Sys {
         Ok(bytes_read)
     }
 
+    /// Implements rlct clone.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn rlct_clone(
         stack: *mut usize,
         os_specific: &mut OsSpecific,
@@ -1052,21 +1203,28 @@ impl Pal for Sys {
             .map_err(|error| Errno(error.errno))
     }
 
+    /// Implements rlct kill.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn rlct_kill(os_tid: crate::pthread::OsTid, signal: usize) -> Result<()> {
         redox_rt::sys::posix_kill_thread(os_tid.thread_fd, signal as u32)?;
         Ok(())
     }
+    /// Implements current os tid.
     fn current_os_tid() -> crate::pthread::OsTid {
         crate::pthread::OsTid {
             thread_fd: RtTcb::current().thread_fd().as_raw_fd(),
         }
     }
 
+    /// Implements read.
     fn read(fd: c_int, buf: &mut [u8]) -> Result<usize> {
         let fd = usize::try_from(fd).map_err(|_| Errno(EBADF))?;
         Ok(redox_rt::sys::posix_read(fd, buf)?)
     }
 
+    /// Implements pread.
     fn pread(fd: c_int, buf: &mut [u8], offset: off_t) -> Result<usize> {
         unsafe {
             Ok(syscall::syscall5(
@@ -1080,6 +1238,7 @@ impl Pal for Sys {
         }
     }
 
+    /// Implements fpath.
     fn fpath(fildes: c_int, out: &mut [u8]) -> Result<usize> {
         // Since this is used by realpath, it converts from the old format to the new one for
         // compatibility reasons
@@ -1109,6 +1268,7 @@ impl Pal for Sys {
         }
     }
 
+    /// Implements readlink.
     fn readlink(pathname: CStr, out: &mut [u8]) -> Result<usize> {
         let file = File::open(
             pathname,
@@ -1117,12 +1277,14 @@ impl Pal for Sys {
         Self::read(*file, out)
     }
 
+    /// Implements readlinkat.
     fn readlinkat(dirfd: c_int, path: CStr, out: &mut [u8]) -> Result<usize> {
         let path = str::from_utf8(path.to_bytes()).map_err(|_| Errno(ENOENT))?;
         let file = openat2(dirfd, path, 0, fcntl::O_RDONLY | fcntl::O_SYMLINK)?;
         Sys::read(*file, out)
     }
 
+    /// Implements rename.
     fn rename(oldpath: CStr, newpath: CStr) -> Result<()> {
         let newpath = newpath.to_str().map_err(|_| Errno(EINVAL))?;
         let newpath = canonicalize(newpath).map_err(|_| Errno(EINVAL))?;
@@ -1135,10 +1297,12 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements renameat.
     fn renameat(old_dir: c_int, old_path: CStr, new_dir: c_int, new_path: CStr) -> Result<()> {
         Sys::renameat2(old_dir, old_path, new_dir, new_path, 0)
     }
 
+    /// Implements renameat2.
     fn renameat2(
         old_dir: c_int,
         old_path: CStr,
@@ -1172,6 +1336,7 @@ impl Pal for Sys {
             .map_err(Into::into)
     }
 
+    /// Implements rmdir.
     fn rmdir(path: CStr) -> Result<()> {
         let path = path.to_str().map_err(|_| Errno(EINVAL))?;
         let canon = canonicalize(path)?;
@@ -1179,22 +1344,29 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements sched yield.
     fn sched_yield() -> Result<()> {
         syscall::sched_yield()?;
         Ok(())
     }
 
+    /// Sets setgroups.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn setgroups(size: size_t, list: *const gid_t) -> Result<()> {
         // TODO
         todo_skip!(0, "setgroups({}, {:p}): not implemented", size, list);
         Err(Errno(ENOSYS))
     }
 
+    /// Sets setpgid.
     fn setpgid(pid: pid_t, pgid: pid_t) -> Result<()> {
         redox_rt::sys::posix_setpgid(pid as usize, pgid as usize)?;
         Ok(())
     }
 
+    /// Sets setpriority.
     fn setpriority(which: c_int, who: id_t, prio: c_int) -> Result<()> {
         // TODO
         todo_skip!(
@@ -1207,10 +1379,12 @@ impl Pal for Sys {
         Err(Errno(ENOSYS))
     }
 
+    /// Sets setsid.
     fn setsid() -> Result<c_int> {
         Ok(redox_rt::sys::posix_setsid()? as c_int)
     }
 
+    /// Sets setresgid.
     fn setresgid(rgid: gid_t, egid: gid_t, sgid: gid_t) -> Result<()> {
         redox_rt::sys::posix_setresugid(&Resugid {
             ruid: None,
@@ -1223,6 +1397,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Sets setresuid.
     fn setresuid(ruid: uid_t, euid: uid_t, suid: uid_t) -> Result<()> {
         redox_rt::sys::posix_setresugid(&Resugid {
             ruid: cvt_uid(ruid)?,
@@ -1235,6 +1410,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements symlink.
     fn symlink(path1: CStr, path2: CStr) -> Result<()> {
         let mut file = File::create(
             path2,
@@ -1248,10 +1424,12 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements sync.
     fn sync() -> Result<()> {
         Ok(())
     }
 
+    /// Implements timer create.
     fn timer_create(clock_id: clockid_t, evp: &sigevent, mut timerid: Out<timer_t>) -> Result<()> {
         if evp.sigev_notify == SIGEV_THREAD {
             if evp.sigev_notify_function.is_none() {
@@ -1305,6 +1483,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements timer delete.
     fn timer_delete(timerid: timer_t) -> Result<()> {
         unsafe {
             let timer_st = &mut *(timerid as *mut timer_internal_t);
@@ -1319,6 +1498,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements timer gettime.
     fn timer_gettime(timerid: timer_t, mut value: Out<itimerspec>) -> Result<()> {
         let timer_st = unsafe { &mut *(timerid as *mut timer_internal_t) };
         let mut now = timespec::default();
@@ -1345,6 +1525,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements timer settime.
     fn timer_settime(
         timerid: timer_t,
         flags: c_int,
@@ -1413,12 +1594,15 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements umask.
     fn umask(mask: mode_t) -> mode_t {
         let new_effective_mask = mask & mode_t::from(MODE_PERM) & !S_ISVTX;
         (redox_rt::sys::swap_umask(new_effective_mask as u32) as mode_t) & !S_ISVTX
     }
 
+    /// Implements uname.
     fn uname(mut utsname: Out<utsname>) -> Result<(), Errno> {
+        /// Returns gethostname.
         fn gethostname(mut name: Out<[u8]>) -> io::Result<()> {
             if name.is_empty() {
                 return Ok(());
@@ -1490,6 +1674,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements unlink.
     fn unlink(path: CStr) -> Result<()> {
         let path = path.to_str().map_err(|_| Errno(EINVAL))?;
         let canon = canonicalize(path)?;
@@ -1497,6 +1682,7 @@ impl Pal for Sys {
         Ok(())
     }
 
+    /// Implements waitpid.
     fn waitpid(pid: pid_t, stat_loc: Option<Out<'_, c_int>>, options: c_int) -> Result<pid_t> {
         let res = None;
         let mut status = 0;
@@ -1560,10 +1746,12 @@ impl Pal for Sys {
         Ok(res? as pid_t)
     }
 
+    /// Implements write.
     fn write(fd: c_int, buf: &[u8]) -> Result<usize> {
         let fd = usize::try_from(fd).map_err(|_| Errno(EBADFD))?;
         Ok(redox_rt::sys::posix_write(fd, buf)?)
     }
+    /// Implements pwrite.
     fn pwrite(fd: c_int, buf: &[u8], offset: off_t) -> Result<usize> {
         unsafe {
             Ok(syscall::syscall5(
@@ -1577,17 +1765,23 @@ impl Pal for Sys {
         }
     }
 
+    /// Implements verify.
     fn verify() -> bool {
         // YIELD on Redox is 20, which is SYS_ARCH_PRCTL on Linux
         (unsafe { syscall::syscall5(syscall::number::SYS_YIELD, !0, !0, !0, !0, !0) }).is_ok()
     }
 
+    /// Implements exit thread.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn exit_thread(stack_base: *mut (), stack_size: usize) -> ! {
         unsafe { redox_rt::thread::exit_this_thread(stack_base, stack_size) }
     }
 }
 
 impl Sys {
+    /// Implements relative to absolute foffset.
     fn relative_to_absolute_foffset(
         fd: usize,
         whence: c_short,

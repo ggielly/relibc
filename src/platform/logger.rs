@@ -7,6 +7,10 @@ use log::{Metadata, Record};
 
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
 
+/// Implements init.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn init() {
     let mut logger = RedoxLogger::new();
     let log_env = c"RELIBC_LOG_LEVEL".as_ptr();
@@ -56,6 +60,7 @@ pub struct Output {
 }
 
 impl fmt::Debug for Output {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Output")
             .field("endpoint", &"opaque")
@@ -66,6 +71,7 @@ impl fmt::Debug for Output {
 }
 
 impl Default for Output {
+    /// Creates a new instance.
     fn default() -> Self {
         // Uses default level of max_level_in_use == None  a.k.a LogLevel::Info
         OutputBuilder::stderr().build()
@@ -113,9 +119,11 @@ impl OutputBuilder {
         )?)))
     }
          */
+    /// Implements stdout.
     pub fn stdout() -> Self {
         Self::with_endpoint(crate::platform::FileWriter::new(1))
     }
+    /// Implements stderr.
     pub fn stderr() -> Self {
         Self::with_endpoint(crate::platform::FileWriter::new(2))
     }
@@ -126,6 +134,7 @@ impl OutputBuilder {
     {
         Self::with_dyn_endpoint(Box::new(endpoint))
     }
+    /// Implements with dyn endpoint.
     pub fn with_dyn_endpoint(endpoint: Box<dyn fmt::Write + Send + 'static>) -> Self {
         Self {
             endpoint,
@@ -134,14 +143,17 @@ impl OutputBuilder {
             ansi: None,
         }
     }
+    /// Implements flush on newline.
     pub fn flush_on_newline(mut self, flush: bool) -> Self {
         self.flush_on_newline = Some(flush);
         self
     }
+    /// Implements with filter.
     pub fn with_filter(mut self, filter: log::LevelFilter) -> Self {
         self.filter = Some(filter);
         self
     }
+    /// Implements build.
     pub fn build(self) -> Output {
         Output {
             endpoint: Mutex::new(self.endpoint),
@@ -162,9 +174,11 @@ pub struct RedoxLogger {
 }
 
 impl RedoxLogger {
+    /// Creates a new instance.
     pub fn new() -> Self {
         Self::default()
     }
+    /// Implements adjust output level.
     fn adjust_output_level(
         max_filter: Option<log::LevelFilter>,
         min_filter: Option<log::LevelFilter>,
@@ -187,6 +201,7 @@ impl RedoxLogger {
             min @ &mut None => *min = Some(output.filter),
         }
     }
+    /// Implements with output.
     pub fn with_output(mut self, mut output: Output) -> Self {
         Self::adjust_output_level(
             self.max_filter,
@@ -198,6 +213,7 @@ impl RedoxLogger {
         self.output = output;
         self
     }
+    /// Implements with min level override.
     pub fn with_min_level_override(mut self, min: log::LevelFilter) -> Self {
         self.min_filter = Some(min);
         let output = &mut self.output;
@@ -210,6 +226,7 @@ impl RedoxLogger {
         );
         self
     }
+    /// Implements with max level override.
     pub fn with_max_level_override(mut self, max: log::LevelFilter) -> Self {
         self.max_filter = Some(max);
         let output = &mut self.output;
@@ -222,10 +239,12 @@ impl RedoxLogger {
         );
         self
     }
+    /// Implements with process name.
     pub fn with_process_name(mut self, name: String) -> Self {
         self.process_name = Some(name);
         self
     }
+    /// Implements enable.
     pub fn enable(self) -> Result<&'static Self, log::SetLoggerError> {
         let leak = Box::leak(Box::new(self));
         log::set_logger(leak)?;
@@ -255,6 +274,7 @@ impl RedoxLogger {
 }
 
 impl log::Log for RedoxLogger {
+    /// Implements enabled.
     fn enabled(&self, metadata: &Metadata) -> bool {
         self.max_level_in_use
             .map(|min| metadata.level() >= min)
@@ -264,6 +284,7 @@ impl log::Log for RedoxLogger {
                 .map(|max| metadata.level() <= max)
                 .unwrap_or(false)
     }
+    /// Implements log.
     fn log(&self, record: &Record) {
         let output = &self.output;
         if record.metadata().level() <= output.filter {
@@ -276,6 +297,7 @@ impl log::Log for RedoxLogger {
             );
         }
     }
+    /// Implements flush.
     fn flush(&self) {
         // no-op
     }
@@ -283,6 +305,7 @@ impl log::Log for RedoxLogger {
 
 struct LineFmt(Option<u32>);
 impl fmt::Display for LineFmt {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(line) = self.0 {
             write!(f, ":{line}")

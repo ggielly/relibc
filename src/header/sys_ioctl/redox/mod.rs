@@ -107,6 +107,10 @@ impl IoctlBuffer {
     }
 }
 
+/// Implements ioctl inner.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn ioctl_inner(fd: c_int, request: c_ulong, out: *mut c_void) -> Result<c_int> {
     match request {
         FIONBIO => {
@@ -191,6 +195,7 @@ unsafe fn ioctl_inner(fd: c_int, request: c_ulong, out: *mut c_void) -> Result<c
 }
 
 #[unsafe(no_mangle)]
+/// Implements ioctl.
 pub unsafe extern "C" fn ioctl(fd: c_int, request: c_ulong, out: *mut c_void) -> c_int {
     unsafe { ioctl_inner(fd, request, out) }.or_minus_one_errno()
 }

@@ -46,6 +46,7 @@ pub struct crypt_data {
 }
 
 impl crypt_data {
+    /// Creates a new instance.
     pub fn new() -> Self {
         crypt_data {
             initialized: 1,
@@ -54,6 +55,7 @@ impl crypt_data {
     }
 }
 
+/// Implements gen salt.
 fn gen_salt() -> Option<String> {
     let mut rng = SmallRng::seed_from_u64(unsafe { rand() as u64 });
     let mut bytes = [0u8; Salt::RECOMMENDED_LENGTH];

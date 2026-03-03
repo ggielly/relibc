@@ -29,6 +29,7 @@ pub struct linger {
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen export linger.
 pub extern "C" fn _cbindgen_export_linger(linger: linger) {}
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_socket.h.html>.
@@ -63,6 +64,7 @@ pub struct ucred {
 }
 
 #[unsafe(no_mangle)]
+/// Implements cbindgen export cmsghdr.
 pub extern "C" fn _cbindgen_export_cmsghdr(cmsghdr: cmsghdr) {}
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_socket.h.html>.
@@ -96,15 +98,18 @@ pub struct sockaddr_storage {
 }
 
 // These must match C macros in include/bits/sys/socket.h {
+/// Implements CMSG LEN.
 pub unsafe extern "C" fn __CMSG_LEN(cmsg: *const cmsghdr) -> ssize_t {
     ((unsafe { (*cmsg).cmsg_len as size_t } + mem::size_of::<c_long>() - 1)
         & !(mem::size_of::<c_long>() - 1)) as ssize_t
 }
 
+/// Implements CMSG NEXT.
 pub unsafe extern "C" fn __CMSG_NEXT(cmsg: *const cmsghdr) -> *mut c_uchar {
     unsafe { (cmsg as *mut c_uchar).offset(__CMSG_LEN(cmsg)) }
 }
 
+/// Implements MHDR END.
 pub unsafe extern "C" fn __MHDR_END(mhdr: *const msghdr) -> *mut c_uchar {
     unsafe { ((*mhdr).msg_control.cast::<c_uchar>()).add((*mhdr).msg_controllen) }
 }
@@ -147,6 +152,7 @@ pub unsafe extern "C" fn CMSG_FIRSTHDR(mhdr: *const msghdr) -> *mut cmsghdr {
 }
 
 #[unsafe(no_mangle)]
+/// Implements CMSG ALIGN.
 pub unsafe extern "C" fn CMSG_ALIGN(len: size_t) -> size_t {
     (len + mem::size_of::<size_t>() - 1) & !(mem::size_of::<size_t>() - 1)
 }

@@ -29,6 +29,10 @@ use crate::{
     },
 };
 
+/// Implements bind or connect.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn bind_or_connect(
     op: SocketCall,
     socket: c_int,
@@ -74,6 +78,10 @@ unsafe fn bind_or_connect(
     Ok(fd)
 }
 
+/// Implements bind or connect into.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn bind_or_connect_into(
     op: SocketCall,
     socket: c_int,
@@ -86,6 +94,10 @@ pub unsafe fn bind_or_connect_into(
     Ok(0)
 }
 
+/// Implements inner af unix.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_af_unix(buf: &[u8], address: *mut sockaddr, address_len: *mut socklen_t) {
     let data = unsafe { &mut *(address as *mut sockaddr_un) };
 
@@ -104,6 +116,10 @@ unsafe fn inner_af_unix(buf: &[u8], address: *mut sockaddr, address_len: *mut so
     unsafe { *address_len = len as socklen_t };
 }
 
+/// Implements inner af inet.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_af_inet(
     local: bool,
     buf: &[u8],
@@ -152,6 +168,10 @@ unsafe fn inner_af_inet(
     }
 }
 
+/// Implements inner get name inner.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_get_name_inner(
     local: bool,
     address: *mut sockaddr,
@@ -181,6 +201,7 @@ unsafe fn inner_get_name_inner(
     Ok(())
 }
 
+/// Implements socket domain type.
 fn socket_domain_type(socket: c_int) -> Result<(c_int, c_int)> {
     let mut buf = [0; 256];
     let len = syscall::fpath(socket as usize, &mut buf)?;
@@ -199,6 +220,7 @@ fn socket_domain_type(socket: c_int) -> Result<(c_int, c_int)> {
     )
 }
 
+/// Implements socket kind.
 fn socket_kind(mut kind: c_int) -> (c_int, usize) {
     let mut flags = O_RDWR;
     if kind & SOCK_NONBLOCK == SOCK_NONBLOCK {
@@ -212,6 +234,10 @@ fn socket_kind(mut kind: c_int) -> (c_int, usize) {
     (kind, flags)
 }
 
+/// Implements serialize payload to stream.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn serialize_payload_to_stream(
     msg_stream: &mut Vec<u8>,
     iovs: &[iovec],
@@ -232,6 +258,10 @@ unsafe fn serialize_payload_to_stream(
     Ok(whole_iov_size)
 }
 
+/// Implements serialize ancillary data to stream.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn serialize_ancillary_data_to_stream(
     msg: *const msghdr,
     mhdr: &msghdr,
@@ -299,6 +329,10 @@ unsafe fn serialize_ancillary_data_to_stream(
     Ok(())
 }
 
+/// Implements deserialize name from stream.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn deserialize_name_from_stream(
     mhdr: &mut msghdr,
     msg_stream: &[u8],
@@ -332,6 +366,10 @@ unsafe fn deserialize_name_from_stream(
     Ok(())
 }
 
+/// Implements deserialize payload from stream.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn deserialize_payload_from_stream(
     mhdr: &mut msghdr,
     msg_stream: &[u8],
@@ -386,6 +424,10 @@ unsafe fn deserialize_payload_from_stream(
     Ok(total_bytes_written)
 }
 
+/// Implements deserialize ancillary data from stream.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn deserialize_ancillary_data_from_stream(
     mhdr: &mut msghdr,
     socket: c_int,
@@ -522,6 +564,10 @@ unsafe fn deserialize_ancillary_data_from_stream(
 }
 
 impl PalSocket for Sys {
+    /// Implements accept.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn accept(
         socket: c_int,
         address: *mut sockaddr,
@@ -537,6 +583,10 @@ impl PalSocket for Sys {
         Ok(stream as c_int)
     }
 
+    /// Implements bind.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn bind(socket: c_int, address: *const sockaddr, address_len: socklen_t) -> Result<()> {
         match unsafe { (*address).sa_family } as c_int {
             AF_INET => {
@@ -610,6 +660,10 @@ impl PalSocket for Sys {
         Ok(())
     }
 
+    /// Implements connect.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn connect(
         socket: c_int,
         address: *const sockaddr,
@@ -671,6 +725,10 @@ impl PalSocket for Sys {
         }
     }
 
+    /// Returns getpeername.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn getpeername(
         socket: c_int,
         address: *mut sockaddr,
@@ -687,6 +745,10 @@ impl PalSocket for Sys {
         unsafe { inner_get_name_inner(false, address, address_len, &buf[..len]) }
     }
 
+    /// Returns getsockname.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn getsockname(
         socket: c_int,
         address: *mut sockaddr,
@@ -698,6 +760,10 @@ impl PalSocket for Sys {
         unsafe { inner_get_name_inner(true, address, address_len, &buf[..len]) }
     }
 
+    /// Returns getsockopt.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn getsockopt(
         socket: c_int,
         level: c_int,
@@ -774,11 +840,16 @@ impl PalSocket for Sys {
         Err(Errno(ENOSYS))
     }
 
+    /// Implements listen.
     fn listen(socket: c_int, backlog: c_int) -> Result<()> {
         // Redox has no need to listen
         Ok(())
     }
 
+    /// Implements recvfrom.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn recvfrom(
         socket: c_int,
         buf: *mut c_void,
@@ -833,6 +904,10 @@ impl PalSocket for Sys {
         }
     }
 
+    /// Implements recvmsg.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn recvmsg(socket: c_int, msg: *mut msghdr, flags: c_int) -> Result<usize> {
         if msg.is_null() {
             return Err(Errno(EINVAL));
@@ -921,6 +996,10 @@ impl PalSocket for Sys {
         Ok(actual_payload_bytes_written_to_iov)
     }
 
+    /// Implements sendmsg.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn sendmsg(socket: c_int, msg: *const msghdr, flags: c_int) -> Result<usize> {
         if msg.is_null() {
             return Err(Errno(EINVAL));
@@ -971,6 +1050,10 @@ impl PalSocket for Sys {
         Ok(actual_payload_bytes_serialized)
     }
 
+    /// Implements sendto.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn sendto(
         socket: c_int,
         buf: *const c_void,
@@ -1010,6 +1093,10 @@ impl PalSocket for Sys {
         }
     }
 
+    /// Sets setsockopt.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn setsockopt(
         socket: c_int,
         level: c_int,
@@ -1077,12 +1164,17 @@ impl PalSocket for Sys {
         Ok(())
     }
 
+    /// Implements shutdown.
     fn shutdown(socket: c_int, how: c_int) -> Result<()> {
         let metadata = [SocketCall::Shutdown as u64, how as u64];
         redox_rt::sys::sys_call_wo(socket as usize, &[], CallFlags::empty(), &metadata)?;
         Ok(())
     }
 
+    /// Implements socket.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn socket(domain: c_int, kind: c_int, protocol: c_int) -> Result<c_int> {
         if domain != AF_INET && domain != AF_UNIX {
             return Err(Errno(EAFNOSUPPORT));
@@ -1109,6 +1201,7 @@ impl PalSocket for Sys {
         })
     }
 
+    /// Implements socketpair.
     fn socketpair(domain: c_int, kind: c_int, protocol: c_int, sv: &mut [c_int; 2]) -> Result<()> {
         let (kind, flags) = socket_kind(kind);
 
@@ -1162,9 +1255,11 @@ where
     T::from_le_bytes_slice(buffer)
 }
 trait NumFromBytes: Sized {
+    /// Implements from le bytes slice.
     fn from_le_bytes_slice(buffer: &[u8]) -> Result<Self>;
 }
 impl NumFromBytes for i32 {
+    /// Implements from le bytes slice.
     fn from_le_bytes_slice(buffer: &[u8]) -> Result<Self> {
         Ok(i32::from_le_bytes(
             buffer
@@ -1175,6 +1270,7 @@ impl NumFromBytes for i32 {
     }
 }
 impl NumFromBytes for usize {
+    /// Implements from le bytes slice.
     fn from_le_bytes_slice(buffer: &[u8]) -> Result<Self> {
         Ok(usize::from_le_bytes(
             buffer

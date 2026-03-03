@@ -38,6 +38,7 @@ static mut STATIC_TCB_MASTER: Master = Master {
 };
 
 #[inline(never)]
+/// Implements static init.
 pub fn static_init(
     sp: &'static Stack,
     #[cfg(target_os = "redox")] thr_fd: redox_rt::proc::FdGuardUpper,
@@ -132,7 +133,11 @@ pub fn static_init(
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "redox"))]
+#[cfg(any(target_os = "linux", target_os = "redox", target_os = "strat9"))]
+/// Implements init.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn init(
     sp: &'static Stack,
     #[cfg(target_os = "redox")] thr_fd: redox_rt::proc::FdGuardUpper,
@@ -144,6 +149,12 @@ pub unsafe fn init(
         const ARCH_GET_FS: usize = 0x1003;
         let mut val = 0usize;
         syscall!(ARCH_PRCTL, ARCH_GET_FS, &raw mut val);
+        tp = val;
+    }
+    #[cfg(all(target_os = "strat9", target_arch = "x86_64"))]
+    {
+        let mut val = 0usize;
+        crate::strat9_syscall!(strat9_abi::syscall::SYS_ARCH_PRCTL, 0x1003usize, &raw mut val);
         tp = val;
     }
     #[cfg(target_arch = "aarch64")]
@@ -202,6 +213,10 @@ pub unsafe fn init(
     }
 }
 
+/// Implements fini.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn fini() {
     if let Some(tcb) = unsafe { Tcb::current() } {
         if !tcb.linker_ptr.is_null() {

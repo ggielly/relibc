@@ -180,6 +180,7 @@ pub struct mcontext {
 }
 
 #[unsafe(no_mangle)]
+/// Implements completely unused cbindgen workaround fn ucontext mcontext.
 pub extern "C" fn __completely_unused_cbindgen_workaround_fn_ucontext_mcontext(
     a: *const ucontext_t,
     b: *const mcontext_t,
@@ -187,6 +188,7 @@ pub extern "C" fn __completely_unused_cbindgen_workaround_fn_ucontext_mcontext(
 }
 
 impl From<SiginfoAbi> for siginfo_t {
+    /// Implements from.
     fn from(value: SiginfoAbi) -> Self {
         unsafe { core::mem::transmute(value) }
     }

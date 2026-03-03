@@ -27,6 +27,7 @@ pub const PTRACE_SYSEMU_SINGLESTEP: c_int = 32;
 
 // Can't use "params: ..." syntax, because... guess what? Cbingen again :(
 #[unsafe(no_mangle)]
+/// Implements ptrace.
 pub unsafe extern "C" fn ptrace(request: c_int, mut __valist: ...) -> c_int {
     // Musl also just grabs the arguments from the varargs...
     unsafe { Sys::ptrace(request, __valist.arg(), __valist.arg(), __valist.arg()) }

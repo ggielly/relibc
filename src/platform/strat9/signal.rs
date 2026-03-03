@@ -4,94 +4,111 @@
 //! Some functions are stubs that return ENOSYS until the kernel
 //! implements the corresponding syscalls.
 
-use super::super::{Pal, PalSignal, types::*};
+use super::super::{PalSignal, types::*};
 use super::Sys;
+use crate::error::{Errno, Result};
 use crate::header::{
     bits_time::timespec,
-    errno::ENOSYS,
     signal::{sigaction, siginfo_t, sigset_t, sigval, stack_t},
     sys_time::itimerval,
 };
-use super::{e_raw, SYS_KILL, SYS_SIGPROCMASK};
+use super::e_raw;
 use crate::strat9_syscall as syscall;
 
 impl PalSignal for Sys {
-    fn getitimer(_which: c_int, _out: &mut itimerval) -> Result<()> {
-        // TODO: Implement when kernel supports interval timers
-        Err(Errno(ENOSYS))
-    }
-
-    fn kill(pid: pid_t, sig: c_int) -> Result<()> {
-        // Uses SYS_KILL (320) from the kernel
-        e_raw(unsafe { syscall!(SYS_KILL, pid as u64, sig as u64) })?;
+    /// Read the current value of an interval timer.
+    fn getitimer(which: c_int, out: &mut itimerval) -> Result<()> {
+        e_raw(syscall!(super::SYS_GETITIMER, which as u64, out as *mut _ as u64))?;
         Ok(())
     }
 
-    fn sigqueue(_pid: pid_t, _sig: c_int, _val: sigval) -> Result<()> {
-        // TODO: Implement when kernel supports sigqueue
-        Err(Errno(ENOSYS))
+    /// Send a signal to a specific process.
+    fn kill(pid: pid_t, sig: c_int) -> Result<()> {
+        e_raw(syscall!(super::SYS_KILL, pid as u64, sig as u64))?;
+        Ok(())
     }
 
-    fn killpg(_pgrp: pid_t, _sig: c_int) -> Result<()> {
-        // TODO: Implement kill process group
-        Err(Errno(ENOSYS))
+    /// Queue a signal with an application-defined value.
+    fn sigqueue(pid: pid_t, sig: c_int, val: sigval) -> Result<()> {
+        e_raw(syscall!(super::SYS_SIGQUEUE, pid as u64, sig as u64, val.sival_ptr as u64))?;
+        Ok(())
     }
 
-    fn raise(_sig: c_int) -> Result<()> {
-        // TODO: Implement raise (kill with current PID)
-        Err(Errno(ENOSYS))
+    /// Send a signal to all members of a process group.
+    fn killpg(pgrp: pid_t, sig: c_int) -> Result<()> {
+        e_raw(syscall!(super::SYS_KILLPG, pgrp as u64, sig as u64))?;
+        Ok(())
     }
 
-    fn setitimer(_which: c_int, _new: &itimerval, _old: Option<&mut itimerval>) -> Result<()> {
-        // TODO: Implement when kernel supports interval timers
-        Err(Errno(ENOSYS))
+    /// Send a signal to the current process.
+    fn raise(sig: c_int) -> Result<()> {
+        let pid = syscall!(super::SYS_GETPID) as pid_t;
+        Self::kill(pid, sig)
     }
 
+    /// Set an interval timer and optionally fetch the previous value.
+    fn setitimer(which: c_int, new: &itimerval, old: Option<&mut itimerval>) -> Result<()> {
+        let old_ptr = old.map_or(0u64, |o| o as *mut _ as u64);
+        e_raw(syscall!(super::SYS_SETITIMER, which as u64, new as *const _ as u64, old_ptr))?;
+        Ok(())
+    }
+
+    /// Install or query a signal handler action.
     fn sigaction(
-        _sig: c_int,
-        _act: Option<&sigaction>,
-        _oact: Option<&mut sigaction>,
+        sig: c_int,
+        act: Option<&sigaction>,
+        oact: Option<&mut sigaction>,
     ) -> Result<()> {
-        // TODO: Implement when kernel supports signal handlers
-        Err(Errno(ENOSYS))
+        let act_ptr = act.map_or(0u64, |a| a as *const _ as u64);
+        let oact_ptr = oact.map_or(0u64, |o| o as *mut _ as u64);
+        e_raw(syscall!(super::SYS_SIGACTION, sig as u64, act_ptr, oact_ptr))?;
+        Ok(())
     }
 
-    unsafe fn sigaltstack(_ss: Option<&stack_t>, _old_ss: Option<&mut stack_t>) -> Result<()> {
-        // TODO: Implement signal alternate stack
-        Err(Errno(ENOSYS))
+    /// Configure an alternate signal stack.
+    unsafe fn sigaltstack(ss: Option<&stack_t>, old_ss: Option<&mut stack_t>) -> Result<()> {
+        let ss_ptr = ss.map_or(0u64, |s| s as *const _ as u64);
+        let old_ptr = old_ss.map_or(0u64, |o| o as *mut _ as u64);
+        e_raw(syscall!(super::SYS_SIGALTSTACK, ss_ptr, old_ptr))?;
+        Ok(())
     }
 
-    fn sigpending(_set: &mut sigset_t) -> Result<()> {
-        // TODO: Implement pending signals query
-        Err(Errno(ENOSYS))
+    /// Return the set of pending signals.
+    fn sigpending(set: &mut sigset_t) -> Result<()> {
+        e_raw(syscall!(super::SYS_SIGPENDING, set as *mut _ as u64))?;
+        Ok(())
     }
 
+    /// Examine and/or update the calling thread signal mask.
     fn sigprocmask(
         how: c_int,
         set: Option<&sigset_t>,
         oset: Option<&mut sigset_t>,
     ) -> Result<()> {
-        // Uses SYS_SIGPROCMASK (321) from the kernel
-        // how: 0=BLOCK, 1=UNBLOCK, 2=SETMASK
         let set_ptr = set.map_or(0u64, |s| s as *const _ as u64);
         let oset_ptr = oset.map_or(0u64, |o| o as *mut _ as u64);
-
-        e_raw(unsafe { syscall!(SYS_SIGPROCMASK, how as u64, set_ptr, oset_ptr) })?;
+        e_raw(syscall!(super::SYS_SIGPROCMASK, how as u64, set_ptr, oset_ptr))?;
         Ok(())
     }
 
-    fn sigsuspend(_mask: &sigset_t) -> Errno {
-        // TODO: Implement sigsuspend - always fails as per spec
-        // This should wait for a signal
-        Errno(ENOSYS)
+    /// Replace mask and suspend execution until signal delivery.
+    fn sigsuspend(mask: &sigset_t) -> Errno {
+        let ret = syscall!(super::SYS_SIGSUSPEND, mask as *const _ as u64);
+        match e_raw(ret) {
+            Ok(_) => Errno(crate::header::errno::EINTR),
+            Err(e) => e,
+        }
     }
 
+    /// Wait for a signal in a set with an optional timeout.
     fn sigtimedwait(
-        _set: &sigset_t,
-        _sig: Option<&mut siginfo_t>,
-        _tp: Option<&timespec>,
+        set: &sigset_t,
+        sig: Option<&mut siginfo_t>,
+        tp: Option<&timespec>,
     ) -> Result<c_int> {
-        // TODO: Implement timed signal wait
-        Err(Errno(ENOSYS))
+        let sig_ptr = sig.map_or(0u64, |s| s as *mut _ as u64);
+        let tp_ptr = tp.map_or(0u64, |t| t as *const _ as u64);
+        e_raw(syscall!(super::SYS_SIGTIMEDWAIT, set as *const _ as u64, sig_ptr, tp_ptr))
+            .map(|r| r as c_int)
     }
 }

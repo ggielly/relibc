@@ -25,16 +25,25 @@ mod linux;
 #[cfg(target_os = "redox")]
 mod redox;
 
+#[cfg(target_os = "strat9")]
+mod linux;
+
 #[cfg(target_os = "linux")]
 use self::linux as sys;
 #[cfg(target_os = "redox")]
 use self::redox as sys;
+
+#[cfg(target_os = "strat9")]
+use self::linux as sys;
 
 #[cfg(target_os = "linux")]
 const SEPARATOR: u8 = b':';
 
 #[cfg(target_os = "redox")]
 const SEPARATOR: u8 = b';';
+
+#[cfg(target_os = "strat9")]
+const SEPARATOR: u8 = b':';
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/pwd.h.html>
 /// for POSIX minimum requirements, and
@@ -77,6 +86,7 @@ enum MaybeAllocated {
 impl Deref for MaybeAllocated {
     type Target = [u8];
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         match self {
             MaybeAllocated::Owned(boxed) => boxed,
@@ -87,6 +97,7 @@ impl Deref for MaybeAllocated {
     }
 }
 impl DerefMut for MaybeAllocated {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             MaybeAllocated::Owned(boxed) => boxed,
@@ -104,6 +115,7 @@ struct OwnedPwd {
 }
 
 impl OwnedPwd {
+    /// Implements into global.
     fn into_global(self) -> *mut passwd {
         unsafe {
             PASSWD_BUF = Some(self.buffer);
@@ -204,6 +216,10 @@ where
     }
 }
 
+/// Implements mux.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn mux(
     status: Result<OwnedPwd, Cause>,
     out: *mut passwd,

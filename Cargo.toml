@@ -101,6 +101,9 @@ git = "https://gitlab.redox-os.org/andypython/object"
 default-features = false
 features = ["elf", "read_core"]
 
+[target.'cfg(target_os = "strat9")'.dependencies]
+strat9-abi = { path = "../../workspace/abi" }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 sc = "0.2.7"
 

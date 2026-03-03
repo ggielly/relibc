@@ -130,6 +130,7 @@ pub unsafe extern "C" fn fstatat(
 }
 
 #[unsafe(no_mangle)]
+/// Implements fxstat.
 pub unsafe extern "C" fn __fxstat(_ver: c_int, fildes: c_int, buf: *mut stat) -> c_int {
     unsafe { fstat(fildes, buf) }
 }

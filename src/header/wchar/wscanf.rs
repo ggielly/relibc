@@ -38,6 +38,10 @@ macro_rules! wc_as_char {
     };
 }
 
+/// Implements inner scanf.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_scanf(
     mut r: LookAheadReader,
     mut format: *const wchar_t,
@@ -520,6 +524,10 @@ unsafe fn inner_scanf(
     Ok(matched)
 }
 
+/// Implements scanf.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn scanf(r: LookAheadReader, format: *const wchar_t, ap: va_list) -> c_int {
     match unsafe { inner_scanf(r, format, ap) } {
         Ok(n) => n,

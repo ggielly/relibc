@@ -70,11 +70,13 @@ pub unsafe fn deactivate_tcb(open_via_dup: &FdGuardUpper) -> Result<()> {
     Ok(())
 }
 
+/// Implements fork impl.
 unsafe extern "fastcall" fn fork_impl(args: &ForkArgs, initial_rsp: *mut usize) -> usize {
     Error::mux(fork_inner(initial_rsp, args))
 }
 
 // TODO: duplicate code with x86_64
+/// Implements child hook.
 unsafe extern "cdecl" fn child_hook(scratchpad: ForkScratchpad) {
     let _ = syscall::close(scratchpad.cur_filetable_fd);
     unsafe {
@@ -350,10 +352,17 @@ asmfunction!(__relibc_internal_rlct_clone_ret -> usize: ["
     ret
 "] <= []);
 unsafe extern "C" {
+    /// Implements relibc internal sigentry crit first.
     fn __relibc_internal_sigentry_crit_first();
+    /// Implements relibc internal sigentry crit second.
     fn __relibc_internal_sigentry_crit_second();
+    /// Implements relibc internal sigentry crit third.
     fn __relibc_internal_sigentry_crit_third();
 }
+/// Implements arch pre.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn arch_pre(stack: &mut SigStack, area: &mut SigArea) -> PosixStackt {
     if stack.regs.eip == __relibc_internal_sigentry_crit_first as usize {
         let stack_ptr = stack.regs.esp as *const usize;
@@ -370,12 +379,17 @@ pub unsafe fn arch_pre(stack: &mut SigStack, area: &mut SigArea) -> PosixStackt 
         flags: 0, // TODO
     }
 }
+/// Implements arch ret to sig.
 pub fn arch_ret_to_sig(stack: &mut SigStack, control: &Sigcontrol) {
     let orig_eip = core::mem::replace(&mut stack.regs.eip, __relibc_internal_sigentry as usize);
     control.saved_ip.set(orig_eip);
     control.saved_archdep_reg.set(stack.regs.eflags);
 }
 #[unsafe(no_mangle)]
+/// Implements manually enter trampoline.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn manually_enter_trampoline() {
     let c = unsafe { &crate::Tcb::current().unwrap().os_specific.control };
     c.control_flags.store(

@@ -65,6 +65,7 @@ static mut RNG: Option<XorShiftRng> = None;
 // TODO: This could be const fn, but the trait system won't allow that.
 static RNG_SAMPLER: Once<Uniform<c_int>> = Once::new();
 
+/// Implements rng sampler.
 fn rng_sampler() -> &'static Uniform<c_int> {
     RNG_SAMPLER.call_once(|| Uniform::new_inclusive(0, RAND_MAX))
 }
@@ -129,6 +130,7 @@ static __stack_chk_guard: uintptr_t = 0x19fcadfe;
 static __stack_chk_guard: uintptr_t = 0xd048c37519fcadfe;
 
 #[unsafe(no_mangle)]
+/// Implements stack chk fail.
 unsafe extern "C" fn __stack_chk_fail() -> ! {
     unsafe { abort() };
 }
@@ -233,6 +235,7 @@ pub unsafe extern "C" fn atoll(s: *const c_char) -> c_longlong {
     dec_num_from_ascii!(s, c_longlong)
 }
 
+/// Implements void cmp.
 unsafe extern "C" fn void_cmp(a: *const c_void, b: *const c_void) -> c_int {
     (unsafe { *(a.cast::<i32>()) }) - unsafe { *(b.cast::<i32>()) } as c_int
 }
@@ -321,6 +324,7 @@ pub extern "C" fn drand48() -> c_double {
 /// Specifications Issue 6, and the function was removed in Issue 7.
 #[deprecated]
 // #[unsafe(no_mangle)]
+/// Implements ecvt.
 pub extern "C" fn ecvt(
     value: c_double,
     ndigit: c_int,
@@ -356,6 +360,7 @@ pub unsafe extern "C" fn exit(status: c_int) -> ! {
         static __fini_array_start: extern "C" fn();
         static __fini_array_end: extern "C" fn();
 
+        /// Implements fini.
         fn _fini();
     }
 
@@ -394,6 +399,7 @@ pub unsafe extern "C" fn exit(status: c_int) -> ! {
 /// Specifications Issue 6, and the function was removed in Issue 7.
 #[deprecated]
 // #[unsafe(no_mangle)]
+/// Implements fcvt.
 pub extern "C" fn fcvt(
     value: c_double,
     ndigit: c_int,
@@ -416,10 +422,15 @@ pub unsafe extern "C" fn free(ptr: *mut c_void) {
 /// Specifications Issue 6, and the function was removed in Issue 7.
 #[deprecated]
 // #[unsafe(no_mangle)]
+/// Implements gcvt.
 pub extern "C" fn gcvt(value: c_double, ndigit: c_int, buf: *mut c_char) -> *mut c_char {
     unimplemented!();
 }
 
+/// Implements find env.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn find_env(search: *const c_char) -> Option<(usize, *mut c_char)> {
     for (i, mut item) in platform::environ_iter().enumerate() {
         let mut search = search;
@@ -524,6 +535,7 @@ pub extern "C" fn grantpt(fildes: c_int) -> c_int {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/initstate.html>.
 // Ported from musl
 #[unsafe(no_mangle)]
+/// Implements initstate.
 pub unsafe extern "C" fn initstate(seed: c_uint, state: *mut c_char, size: size_t) -> *mut c_char {
     if size < 8 {
         ptr::null_mut()
@@ -788,6 +800,7 @@ where
     None
 }
 
+/// Returns get nstime.
 fn get_nstime() -> u64 {
     unsafe {
         let mut ts = mem::MaybeUninit::uninit();
@@ -932,6 +945,9 @@ pub unsafe extern "C" fn posix_openpt(flags: c_int) -> c_int {
     #[cfg(target_os = "linux")]
     let r = unsafe { open((b"/dev/ptmx\0" as *const u8).cast(), flags) };
 
+    #[cfg(target_os = "strat9")]
+    let r = unsafe { open((b"/dev/ptmx\0" as *const u8).cast(), flags) };
+
     if r < 0 && platform::ERRNO.get() == ENOSPC {
         platform::ERRNO.set(EAGAIN);
     }
@@ -964,6 +980,10 @@ pub unsafe extern "C" fn ptsname_r(fd: c_int, buf: *mut c_char, buflen: size_t) 
 
 #[cfg(target_os = "redox")]
 #[inline(always)]
+/// Implements ptsname r.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn __ptsname_r(fd: c_int, buf: *mut c_char, buflen: size_t) -> c_int {
     let tty_ptr = unsafe { unistd::ttyname(fd) };
 
@@ -987,8 +1007,39 @@ unsafe fn __ptsname_r(fd: c_int, buf: *mut c_char, buflen: size_t) -> c_int {
     platform::ERRNO.get()
 }
 
+#[cfg(target_os = "strat9")]
+#[inline(always)]
+/// Implements ptsname r.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
+unsafe fn __ptsname_r(fd: c_int, buf: *mut c_char, buflen: size_t) -> c_int {
+    let mut pty = 0;
+    let err = platform::ERRNO.get();
+
+    if unsafe { ioctl(fd, TIOCGPTN, ptr::from_mut(&mut pty).cast::<c_void>()) } == 0 {
+        let name = format!("/dev/pts/{}", pty);
+        let len = name.len();
+        if len > buflen {
+            platform::ERRNO.set(ERANGE);
+            ERANGE
+        } else {
+            let s = name.as_ptr().cast();
+            unsafe { ptr::copy_nonoverlapping(s, buf, len) };
+            platform::ERRNO.set(err);
+            0
+        }
+    } else {
+        platform::ERRNO.get()
+    }
+}
+
 #[cfg(target_os = "linux")]
 #[inline(always)]
+/// Implements ptsname r.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn __ptsname_r(fd: c_int, buf: *mut c_char, buflen: size_t) -> c_int {
     let mut pty = 0;
     let err = platform::ERRNO.get();
@@ -1012,6 +1063,10 @@ unsafe fn __ptsname_r(fd: c_int, buf: *mut c_char, buflen: size_t) -> c_int {
     }
 }
 
+/// Implements put new env.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn put_new_env(insert: *mut c_char) {
     // XXX: Another problem is that `environ` can be set to any pointer, which means there is a
     // chance of a memory leak. But we can check if it was the same as before, like musl does.
@@ -1070,6 +1125,7 @@ pub unsafe extern "C" fn qsort(
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/qsort.html>.
 // #[unsafe(no_mangle)]
+/// Implements qsort r.
 pub unsafe extern "C" fn qsort_r(
     base: *mut c_void,
     nel: size_t,
@@ -1133,6 +1189,7 @@ pub unsafe extern "C" fn rand_r(seed: *mut c_uint) -> c_int {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/initstate.html>.
 // Ported from musl
 #[unsafe(no_mangle)]
+/// Implements random.
 pub unsafe extern "C" fn random() -> c_long {
     let mut random_state = random::state_lock();
 
@@ -1231,6 +1288,7 @@ pub unsafe extern "C" fn realpath(pathname: *const c_char, resolved: *mut c_char
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/getenv.html>.
 // #[unsafe(no_mangle)]
+/// Implements secure getenv.
 pub unsafe extern "C" fn secure_getenv(name: *const c_char) -> *mut c_char {
     unimplemented!();
 }
@@ -1263,6 +1321,10 @@ pub unsafe extern "C" fn seed48(seed16v: *mut c_ushort) -> *mut c_ushort {
     (&raw mut BUFFER).cast()
 }
 
+/// Implements copy kv.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn copy_kv(
     existing: *mut c_char,
     key: *const c_char,
@@ -1325,6 +1387,7 @@ pub unsafe extern "C" fn setenv(
 /// Specifications Issue 8.
 #[deprecated]
 // #[unsafe(no_mangle)]
+/// Sets setkey.
 pub unsafe extern "C" fn setkey(key: *const c_char) {
     unimplemented!();
 }
@@ -1332,6 +1395,7 @@ pub unsafe extern "C" fn setkey(key: *const c_char) {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/initstate.html>.
 // Ported from musl. The state parameter is no longer const in newer versions of POSIX.
 #[unsafe(no_mangle)]
+/// Sets setstate.
 pub unsafe extern "C" fn setstate(state: *mut c_char) -> *mut c_char {
     let mut random_state = random::state_lock();
 
@@ -1369,12 +1433,14 @@ pub extern "C" fn srand48(seedval: c_long) {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/initstate.html>.
 // Ported from musl
 #[unsafe(no_mangle)]
+/// Implements srandom.
 pub unsafe extern "C" fn srandom(seed: c_uint) {
     let mut random_state = random::state_lock();
 
     unsafe { random_state.seed(seed) };
 }
 
+/// Checks whether is positive.
 pub fn is_positive(ch: c_char) -> Option<(bool, isize)> {
     match ch {
         0 => None,
@@ -1384,6 +1450,10 @@ pub fn is_positive(ch: c_char) -> Option<(bool, isize)> {
     }
 }
 
+/// Implements detect base.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn detect_base(s: *const c_char) -> Option<(c_int, isize)> {
     let first = unsafe { *s } as u8;
     match first {
@@ -1403,6 +1473,10 @@ pub unsafe fn detect_base(s: *const c_char) -> Option<(c_int, isize)> {
     }
 }
 
+/// Implements convert octal.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn convert_octal(s: *const c_char) -> Option<(c_ulong, isize, bool)> {
     if unsafe { *s } != 0 && unsafe { *s } == b'0' as c_char {
         if let Some((val, idx, overflow)) = unsafe { convert_integer(s.offset(1), 8) } {
@@ -1416,6 +1490,10 @@ pub unsafe fn convert_octal(s: *const c_char) -> Option<(c_ulong, isize, bool)> 
     }
 }
 
+/// Implements convert hex.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn convert_hex(s: *const c_char) -> Option<(c_ulong, isize, bool)> {
     if (unsafe { *s } != 0 && unsafe { *s } == b'0' as c_char)
         && (unsafe { *s.offset(1) } != 0
@@ -1429,6 +1507,10 @@ pub unsafe fn convert_hex(s: *const c_char) -> Option<(c_ulong, isize, bool)> {
     }
 }
 
+/// Implements convert integer.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn convert_integer(s: *const c_char, base: c_int) -> Option<(c_ulong, isize, bool)> {
     // -1 means the character is invalid
     #[rustfmt::skip]
@@ -1600,6 +1682,7 @@ pub unsafe extern "C" fn system(command: *const c_char) -> c_int {
 /// Specifications Issue 5, and the function was removed in Issue 6.
 #[deprecated]
 // #[unsafe(no_mangle)]
+/// Implements ttyslot.
 pub extern "C" fn ttyslot() -> c_int {
     unimplemented!();
 }

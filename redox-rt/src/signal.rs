@@ -21,6 +21,7 @@ use redox_protocols::protocol::{
 #[cfg(target_arch = "x86_64")]
 static CPUID_EAX1_ECX: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
+/// Implements sighandler function.
 pub fn sighandler_function() -> usize {
     // TODO: HWCAP?
 
@@ -65,6 +66,7 @@ pub const SS_ONSTACK: usize = 1;
 pub const SS_DISABLE: usize = 2;
 
 impl From<Sigaltstack> for PosixStackt {
+    /// Implements from.
     fn from(value: Sigaltstack) -> Self {
         match value {
             Sigaltstack::Disabled => PosixStackt {
@@ -104,6 +106,10 @@ pub struct SiginfoAbi {
 }
 
 #[inline(always)]
+/// Implements inner.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner(stack: &mut SigStack) {
     let os = unsafe { &Tcb::current().unwrap().os_specific };
 
@@ -284,22 +290,27 @@ unsafe fn inner(stack: &mut SigStack) {
     }
 }
 #[cfg(not(target_arch = "x86"))]
+/// Implements inner c.
 pub(crate) unsafe extern "C" fn inner_c(stack: usize) {
     unsafe { inner(&mut *(stack as *mut SigStack)) }
 }
 #[cfg(target_arch = "x86")]
+/// Implements inner fastcall.
 pub(crate) unsafe extern "fastcall" fn inner_fastcall(stack: usize) {
     unsafe { inner(&mut *(stack as *mut SigStack)) }
 }
 
+/// Returns get sigmask.
 pub fn get_sigmask() -> Result<u64> {
     let mut mask = 0;
     modify_sigmask(Some(&mut mask), Option::<fn(u64) -> u64>::None)?;
     Ok(mask)
 }
+/// Sets set sigmask.
 pub fn set_sigmask(new: Option<u64>, old: Option<&mut u64>) -> Result<()> {
     modify_sigmask(old, new.map(move |newmask| move |_| newmask))
 }
+/// Implements or sigmask.
 pub fn or_sigmask(new: Option<u64>, old: Option<&mut u64>) -> Result<()> {
     // Parsing nightmare... :)
     modify_sigmask(
@@ -307,12 +318,14 @@ pub fn or_sigmask(new: Option<u64>, old: Option<&mut u64>) -> Result<()> {
         new.map(move |newmask| move |oldmask| oldmask | newmask),
     )
 }
+/// Implements andn sigmask.
 pub fn andn_sigmask(new: Option<u64>, old: Option<&mut u64>) -> Result<()> {
     modify_sigmask(
         old,
         new.map(move |newmask| move |oldmask| oldmask & !newmask),
     )
 }
+/// Returns get allowset raw.
 fn get_allowset_raw(words: &[AtomicU64; 2]) -> u64 {
     (words[0].load(Ordering::Relaxed) >> 32) | ((words[1].load(Ordering::Relaxed) >> 32) << 32)
 }
@@ -336,6 +349,7 @@ fn set_allowset_raw(words: &[AtomicU64; 2], old: u64, new_raw: u64) -> u64 {
     prev_w0 | (prev_w1 << 32)
 }
 const ALLOWSET_ALWAYS: u64 = sig_bit(SIGSTOP as u32) | sig_bit(SIGKILL as u32);
+/// Implements modify sigmask.
 fn modify_sigmask(old: Option<&mut u64>, op: Option<impl FnOnce(u64) -> u64>) -> Result<()> {
     let _guard = tmp_disable_signals();
     let ctl = current_sigctl();
@@ -384,6 +398,7 @@ pub struct Sigaction {
 }
 
 impl Sigaction {
+    /// Implements ip.
     fn ip(&self) -> usize {
         unsafe {
             match self.kind {
@@ -402,6 +417,7 @@ impl Sigaction {
 
 const MASK_DONTCARE: u64 = !0;
 
+/// Implements convert old.
 fn convert_old(action: &RawAction) -> Sigaction {
     let old_first = action.first.load(Ordering::Relaxed);
     let old_mask = action.user_data.load(Ordering::Relaxed);
@@ -426,6 +442,7 @@ fn convert_old(action: &RawAction) -> Sigaction {
     }
 }
 
+/// Implements sigaction.
 pub fn sigaction(signal: u8, new: Option<&Sigaction>, old: Option<&mut Sigaction>) -> Result<()> {
     let _sigguard = tmp_disable_signals();
     let ctl = current_sigctl();
@@ -433,6 +450,7 @@ pub fn sigaction(signal: u8, new: Option<&Sigaction>, old: Option<&mut Sigaction
     let _guard = SIGACTIONS_LOCK.lock();
     sigaction_inner(ctl, signal, new, old)
 }
+/// Implements sigaction inner.
 fn sigaction_inner(
     ctl: &Sigcontrol,
     signal: u8,
@@ -533,6 +551,7 @@ fn sigaction_inner(
     Ok(())
 }
 
+/// Implements current sigctl.
 fn current_sigctl() -> &'static Sigcontrol {
     &unsafe { Tcb::current() }.unwrap().os_specific.control
 }
@@ -541,6 +560,7 @@ pub struct TmpDisableSignalsGuard {
     _inner: (),
 }
 
+/// Implements tmp disable signals.
 pub fn tmp_disable_signals() -> TmpDisableSignalsGuard {
     unsafe {
         let ctl = &current_sigctl().control_flags;
@@ -557,6 +577,7 @@ pub fn tmp_disable_signals() -> TmpDisableSignalsGuard {
     TmpDisableSignalsGuard { _inner: () }
 }
 impl Drop for TmpDisableSignalsGuard {
+    /// Implements drop.
     fn drop(&mut self) {
         unsafe {
             let depth =
@@ -593,6 +614,7 @@ bitflags::bitflags! {
 
 const STORED_FLAGS: u32 = 0xfe00_0000;
 
+/// Implements default handler.
 fn default_handler(_sig: c_int) {
     unreachable!();
 }
@@ -616,12 +638,14 @@ pub(crate) static PROC_CONTROL_STRUCT: SigProcControl = SigProcControl {
     sender_infos: [const { AtomicU64::new(0) }; 32],
 };
 
+/// Implements sig bit.
 const fn sig_bit(sig: u32) -> u64 {
     //assert_ne!(sig, 32);
     //assert_ne!(sig, 0);
     1 << (sig - 1)
 }
 
+/// Sets setup sighandler.
 pub fn setup_sighandler(tcb: &RtTcb, first_thread: bool) {
     if first_thread {
         let _guard = SIGACTIONS_LOCK.lock();
@@ -679,6 +703,7 @@ pub fn setup_sighandler(tcb: &RtTcb, first_thread: bool) {
     let _ = set_sigmask(Some(0), None);
 }
 pub type RtSigarea = RtTcb; // TODO
+/// Implements current setsighandler struct.
 pub fn current_setsighandler_struct() -> SetSighandlerData {
     SetSighandlerData {
         user_handler: sighandler_function(),
@@ -702,6 +727,7 @@ pub enum Sigaltstack {
     },
 }
 
+/// Returns get sigaltstack.
 pub(crate) fn get_sigaltstack(tcb: &SigArea, sp: usize) -> Sigaltstack {
     if tcb.altstack_bottom == 0 && tcb.altstack_top == usize::MAX {
         Sigaltstack::Disabled
@@ -714,6 +740,10 @@ pub(crate) fn get_sigaltstack(tcb: &SigArea, sp: usize) -> Sigaltstack {
     }
 }
 
+/// Implements sigaltstack.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn sigaltstack(
     new: Option<&Sigaltstack>,
     old_out: Option<&mut Sigaltstack>,
@@ -758,6 +788,7 @@ pub unsafe fn sigaltstack(
 
 pub const MIN_SIGALTSTACK_SIZE: usize = 2048;
 
+/// Implements currently pending blocked.
 pub fn currently_pending_blocked() -> u64 {
     let control = &unsafe { Tcb::current().unwrap() }.os_specific.control;
     let w0 = control.word[0].load(Ordering::Relaxed);
@@ -772,6 +803,7 @@ pub fn currently_pending_blocked() -> u64 {
 }
 pub enum Unreachable {}
 
+/// Implements await signal async.
 pub fn await_signal_async(inner_allowset: u64) -> Result<Unreachable> {
     let _guard = tmp_disable_signals();
     let control = &unsafe { Tcb::current().unwrap() }.os_specific.control;
@@ -828,12 +860,14 @@ pub fn callback_or_signal_async<T, F: FnOnce() -> Result<T>>(
 }
 
 /*#[unsafe(no_mangle)]
+/// Implements redox rt debug sigctl.
 pub extern "C" fn __redox_rt_debug_sigctl() {
     let tcb = &RtTcb::current().control;
     let _ = syscall::write(1, alloc::format!("SIGCTL: {tcb:#x?}\n").as_bytes());
 }*/
 
 // TODO: deadline-based API
+/// Implements await signal sync.
 pub fn await_signal_sync(inner_allowset: u64, timeout: Option<&TimeSpec>) -> Result<SiginfoAbi> {
     let _guard = tmp_disable_signals();
     let control = &unsafe { Tcb::current().unwrap() }.os_specific.control;
@@ -875,6 +909,7 @@ pub fn await_signal_sync(inner_allowset: u64, timeout: Option<&TimeSpec>) -> Res
         .ok_or(Error::new(EAGAIN))
 }
 
+/// Implements try claim multiple.
 fn try_claim_multiple(
     mut proc_pending: u64,
     mut thread_pending: u64,
@@ -898,6 +933,7 @@ fn try_claim_multiple(
     }
     None
 }
+/// Implements try claim single.
 fn try_claim_single(sig_idx: u32, thread_control: Option<&Sigcontrol>) -> Option<SiginfoAbi> {
     let sig_group = sig_idx / 32;
 
@@ -968,6 +1004,7 @@ fn try_claim_single(sig_idx: u32, thread_control: Option<&Sigcontrol>) -> Option
         })
     }
 }
+/// Implements apply inherited sigignmask.
 pub fn apply_inherited_sigignmask(inherited: u64) {
     let _sig_guard = tmp_disable_signals();
     let _guard = SIGACTIONS_LOCK.lock();
@@ -992,6 +1029,7 @@ pub fn apply_inherited_sigignmask(inherited: u64) {
         );
     }
 }
+/// Returns get sigignmask to inherit.
 pub fn get_sigignmask_to_inherit() -> u64 {
     let _sig_guard = tmp_disable_signals();
     let _guard = SIGACTIONS_LOCK.lock();

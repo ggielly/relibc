@@ -47,14 +47,17 @@ fn wrapper<T>(restart: bool, erestart: bool, mut f: impl FnMut() -> Result<T>) -
 }
 // TODO: uninitialized memory?
 #[inline]
+/// Implements posix read.
 pub fn posix_read(fd: usize, buf: &mut [u8]) -> Result<usize> {
     wrapper(true, false, || syscall::read(fd, buf))
 }
 #[inline]
+/// Implements posix write.
 pub fn posix_write(fd: usize, buf: &[u8]) -> Result<usize> {
     wrapper(true, false, || syscall::write(fd, buf))
 }
 #[inline]
+/// Implements posix kill.
 pub fn posix_kill(target: ProcKillTarget, sig: usize) -> Result<()> {
     if sig > 64 {
         return Err(Error::new(EINVAL));
@@ -72,6 +75,7 @@ pub fn posix_kill(target: ProcKillTarget, sig: usize) -> Result<()> {
     }
 }
 #[inline]
+/// Implements posix sigqueue.
 pub fn posix_sigqueue(pid: usize, sig: usize, arg: usize) -> Result<()> {
     let target = ProcKillTarget::from_raw(pid);
     if !matches!(target, ProcKillTarget::SingleProc(_)) {
@@ -101,16 +105,22 @@ pub fn posix_sigqueue(pid: usize, sig: usize, arg: usize) -> Result<()> {
     }
 }
 #[inline]
+/// Implements posix getpid.
 pub fn posix_getpid() -> u32 {
     // SAFETY: read-only except during program/fork child initialization
     unsafe { addr_of!((*crate::STATIC_PROC_INFO.get()).pid).read() }
 }
 #[inline]
+/// Implements posix getppid.
 pub fn posix_getppid() -> u32 {
     this_proc_call(&mut [], CallFlags::empty(), &[ProcCall::Getppid as u64]).expect("cannot fail")
         as u32
 }
 #[inline]
+/// Implements sys futex wait.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn sys_futex_wait(addr: *mut u32, val: u32, deadline: Option<&TimeSpec>) -> Result<()> {
     wrapper(true, false, || {
         unsafe {
@@ -127,6 +137,10 @@ pub unsafe fn sys_futex_wait(addr: *mut u32, val: u32, deadline: Option<&TimeSpe
     })
 }
 #[inline]
+/// Implements sys futex wake.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn sys_futex_wake(addr: *mut u32, num: u32) -> Result<u32> {
     unsafe {
         syscall::syscall5(
@@ -140,6 +154,10 @@ pub unsafe fn sys_futex_wake(addr: *mut u32, num: u32) -> Result<u32> {
     }
     .map(|awoken| awoken as u32)
 }
+/// Implements raw sys call.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn raw_sys_call(
     fd: usize,
     payload_ptr: *const u8,
@@ -158,6 +176,7 @@ unsafe fn raw_sys_call(
         )
     }
 }
+/// Implements sys call ro.
 pub fn sys_call_ro(
     fd: usize,
     payload: &mut [u8],
@@ -174,6 +193,7 @@ pub fn sys_call_ro(
         )
     }
 }
+/// Implements sys call wo.
 pub fn sys_call_wo(fd: usize, payload: &[u8], flags: CallFlags, metadata: &[u64]) -> Result<usize> {
     unsafe {
         raw_sys_call(
@@ -185,6 +205,7 @@ pub fn sys_call_wo(fd: usize, payload: &[u8], flags: CallFlags, metadata: &[u64]
         )
     }
 }
+/// Implements sys call rw.
 pub fn sys_call_rw(
     fd: usize,
     payload: &mut [u8],
@@ -201,6 +222,7 @@ pub fn sys_call_rw(
         )
     }
 }
+/// Implements sys call.
 pub fn sys_call(
     fd: usize,
     payload: &mut [u8],
@@ -209,6 +231,7 @@ pub fn sys_call(
 ) -> Result<usize> {
     unsafe { raw_sys_call(fd, payload.as_mut_ptr(), payload.len(), flags, metadata) }
 }
+/// Implements this proc call.
 pub fn this_proc_call(payload: &mut [u8], flags: CallFlags, metadata: &[u64]) -> Result<usize> {
     proc_call(
         crate::current_proc_fd().as_raw_fd(),
@@ -217,6 +240,7 @@ pub fn this_proc_call(payload: &mut [u8], flags: CallFlags, metadata: &[u64]) ->
         metadata,
     )
 }
+/// Implements proc call.
 pub fn proc_call(
     proc_fd: usize,
     payload: &mut [u8],
@@ -225,6 +249,7 @@ pub fn proc_call(
 ) -> Result<usize> {
     sys_call(proc_fd, payload, flags, metadata)
 }
+/// Implements thread call.
 pub fn thread_call(
     thread_fd: usize,
     payload: &mut [u8],
@@ -233,6 +258,7 @@ pub fn thread_call(
 ) -> Result<usize> {
     sys_call(thread_fd, payload, flags, metadata)
 }
+/// Implements this thread call.
 pub fn this_thread_call(payload: &mut [u8], flags: CallFlags, metadata: &[u64]) -> Result<usize> {
     thread_call(
         RtTcb::current().thread_fd().as_raw_fd(),
@@ -250,6 +276,7 @@ pub enum WaitpidTarget {
     ProcGroup { pgid: usize },
 }
 impl WaitpidTarget {
+    /// Implements from posix arg.
     pub fn from_posix_arg(raw: isize) -> Self {
         match raw {
             0 => Self::AnyGroupMember,
@@ -262,6 +289,7 @@ impl WaitpidTarget {
     }
 }
 
+/// Implements sys waitpid.
 pub fn sys_waitpid(target: WaitpidTarget, status: &mut usize, flags: WaitFlags) -> Result<usize> {
     let (call, pid) = match target {
         WaitpidTarget::AnyChild => (ProcCall::Waitpid, 0),
@@ -277,6 +305,7 @@ pub fn sys_waitpid(target: WaitpidTarget, status: &mut usize, flags: WaitFlags) 
         )
     })
 }
+/// Implements posix kill thread.
 pub fn posix_kill_thread(thread_fd: usize, signal: u32) -> Result<()> {
     // TODO: don't hardcode?
     if signal > 64 {
@@ -304,11 +333,13 @@ static UMASK: AtomicU32 = AtomicU32::new(0o022);
 //
 // TODO: validate here?
 #[inline]
+/// Implements swap umask.
 pub fn swap_umask(mask: u32) -> u32 {
     UMASK.swap(mask, Ordering::AcqRel)
 }
 
 #[inline]
+/// Returns get umask.
 pub fn get_umask() -> u32 {
     UMASK.load(Ordering::Acquire)
 }
@@ -364,6 +395,7 @@ pub fn posix_setresugid(ids: &Resugid<Option<u32>>) -> Result<()> {
 
     Ok(())
 }
+/// Implements posix getresugid.
 pub fn posix_getresugid() -> Resugid<u32> {
     let _sig_guard = tmp_disable_signals();
     let DynamicProcInfo {
@@ -384,9 +416,11 @@ pub fn posix_getresugid() -> Resugid<u32> {
         sgid,
     }
 }
+/// Returns getens.
 pub fn getens() -> Result<usize> {
     read_proc_meta(crate::current_proc_fd()).map(|meta| meta.ens as usize)
 }
+/// Returns get proc credentials.
 pub fn get_proc_credentials(cap_fd: usize, target_pid: usize, buf: &mut [u8]) -> Result<usize> {
     if buf.len() < size_of::<redox_protocols::protocol::ProcMeta>() {
         return Err(Error::new(EINVAL));
@@ -398,6 +432,7 @@ pub fn get_proc_credentials(cap_fd: usize, target_pid: usize, buf: &mut [u8]) ->
         &[ProcCall::GetProcCredentials as u64, target_pid as u64],
     )
 }
+/// Implements posix exit.
 pub fn posix_exit(status: i32) -> ! {
     this_proc_call(
         &mut [],
@@ -408,6 +443,7 @@ pub fn posix_exit(status: i32) -> ! {
     let _ = syscall::write(1, b"redox-rt: ProcCall::Exit FAILED, abort()ing!\n");
     core::intrinsics::abort();
 }
+/// Implements posix getpgid.
 pub fn posix_getpgid(pid: usize) -> Result<usize> {
     this_proc_call(
         &mut [],
@@ -415,6 +451,7 @@ pub fn posix_getpgid(pid: usize) -> Result<usize> {
         &[ProcCall::Setpgid as u64, pid as u64, u64::wrapping_neg(1)],
     )
 }
+/// Implements posix setpgid.
 pub fn posix_setpgid(pid: usize, pgid: usize) -> Result<()> {
     if pgid == usize::wrapping_neg(1) {
         return Err(Error::new(EINVAL));
@@ -426,6 +463,7 @@ pub fn posix_setpgid(pid: usize, pgid: usize) -> Result<()> {
     )?;
     Ok(())
 }
+/// Implements posix getsid.
 pub fn posix_getsid(pid: usize) -> Result<usize> {
     this_proc_call(
         &mut [],
@@ -433,20 +471,24 @@ pub fn posix_getsid(pid: usize) -> Result<usize> {
         &[ProcCall::Getsid as u64, pid as u64],
     )
 }
+/// Implements posix setsid.
 pub fn posix_setsid() -> Result<u32> {
     this_proc_call(&mut [], CallFlags::empty(), &[ProcCall::Setsid as u64])?;
     Ok(posix_getpid())
 }
+/// Implements posix nanosleep.
 pub fn posix_nanosleep(rqtp: &TimeSpec, rmtp: &mut TimeSpec) -> Result<()> {
     wrapper(false, false, || syscall::nanosleep(rqtp, rmtp))?;
     Ok(())
 }
+/// Sets setns.
 pub fn setns(fd: usize) -> Option<FdGuardUpper> {
     let mut info = DYNAMIC_PROC_INFO.lock();
     let new_fd_guard = FdGuard::new(fd).to_upper().unwrap();
     let old_fd_guard = replace(&mut info.ns_fd, Some(new_fd_guard));
     old_fd_guard
 }
+/// Returns getns.
 pub fn getns() -> Result<usize> {
     let cur_ns = crate::current_namespace_fd()?;
     if cur_ns == usize::MAX {
@@ -499,6 +541,7 @@ pub fn unlink<T: AsRef<str>>(path: T, flags: usize) -> Result<usize> {
         )
     }
 }
+/// Implements mkns.
 pub fn mkns(names: &[IoSlice]) -> Result<FdGuardUpper> {
     let mut buf = Vec::from((NsDup::ForkNs as usize).to_ne_bytes());
     for name in names {
@@ -510,6 +553,7 @@ pub fn mkns(names: &[IoSlice]) -> Result<FdGuardUpper> {
     }
     FdGuard::new(syscall::dup(crate::current_namespace_fd()?, &buf)?).to_upper()
 }
+/// Implements register scheme to ns.
 pub fn register_scheme_to_ns(ns_fd: usize, name: &str, cap_fd: usize) -> Result<()> {
     let mut buf = alloc::vec::Vec::from((NsDup::IssueRegister as usize).to_ne_bytes());
     buf.extend_from_slice(name.as_bytes());
@@ -518,12 +562,15 @@ pub fn register_scheme_to_ns(ns_fd: usize, name: &str, cap_fd: usize) -> Result<
     ns_this_scheme.call_wo(&cap_bytes, CallFlags::FD, &[])?;
     Ok(())
 }
+/// Implements std fs call ro.
 pub fn std_fs_call_ro(fd: usize, payload: &mut [u8], metadata: &StdFsCallMeta) -> Result<usize> {
     sys_call_ro(fd, payload, CallFlags::STD_FS, metadata)
 }
+/// Implements std fs call wo.
 pub fn std_fs_call_wo(fd: usize, payload: &[u8], metadata: &StdFsCallMeta) -> Result<usize> {
     sys_call_wo(fd, payload, CallFlags::STD_FS, metadata)
 }
+/// Implements std fs call rw.
 pub fn std_fs_call_rw(fd: usize, payload: &mut [u8], metadata: &StdFsCallMeta) -> Result<usize> {
     sys_call_rw(fd, payload, CallFlags::STD_FS, metadata)
 }

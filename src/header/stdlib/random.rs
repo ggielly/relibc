@@ -39,6 +39,10 @@ impl State {
         }
     }
 
+    /// Implements save.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn save(&mut self) -> *mut [u8; 4] {
         unsafe { self.ensure_x_ptr_init() };
 
@@ -48,6 +52,10 @@ impl State {
         unsafe { self.x_ptr.offset(-1) }
     }
 
+    /// Implements load.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn load(&mut self, state_ptr: *mut [u8; 4]) {
         let stash_value = u32::from_ne_bytes(unsafe { *state_ptr });
         self.x_ptr = unsafe { state_ptr.offset(1) };
@@ -62,6 +70,10 @@ impl State {
         self.j = u8::try_from(stash_value & 0xff).unwrap();
     }
 
+    /// Implements seed.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     pub unsafe fn seed(&mut self, seed: c_uint) {
         unsafe { self.ensure_x_ptr_init() };
 
@@ -109,10 +121,12 @@ pub fn state_lock<'a>() -> MutexGuard<'a, State> {
     STATE.try_lock().expect("unable to acquire PRNG lock")
 }
 
+/// Implements lcg31 step.
 pub fn lcg31_step(x: u32) -> u32 {
     1103515245_u32.wrapping_mul(x).wrapping_add(12345_u32) & 0x7fffffff
 }
 
+/// Implements lcg64 step.
 pub fn lcg64_step(x: u64) -> u64 {
     6364136223846793005_u64.wrapping_mul(x).wrapping_add(1_u64)
 }

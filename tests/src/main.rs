@@ -10,6 +10,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Implements expected.
 fn expected(bin: &str, kind: &str, generated: &[u8], status: ExitStatus) -> Result<(), String> {
     let mut expected_file = PathBuf::from(format!("expected/{}.{}", bin, kind));
     if !expected_file.exists() {
@@ -55,6 +56,7 @@ fn expected(bin: &str, kind: &str, generated: &[u8], status: ExitStatus) -> Resu
 
 const STATUS_ONLY: &str = "-s";
 
+/// Implements print tabbed.
 fn print_tabbed(output: Vec<u8>, name: &str) {
     if let Ok(stdout) = String::from_utf8(output) {
         let stdout: Vec<String> = stdout.trim().lines().map(|p| format!("  {}", p)).collect();
@@ -69,6 +71,7 @@ fn print_tabbed(output: Vec<u8>, name: &str) {
     }
 }
 
+/// Implements main.
 fn main() {
     let mut failures = Vec::new();
     let timeout = Duration::from_secs(10);

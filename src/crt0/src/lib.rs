@@ -75,11 +75,14 @@ _start:
 );
 
 #[unsafe(no_mangle)]
+/// Implements relibc crt0.
 pub unsafe extern "C" fn relibc_crt0(sp: usize) -> ! {
     // This wrapper ensures a dynamic libc.so can access a hidden main function
     //TODO: common definition of types
     unsafe extern "C" {
+        /// Implements main.
         fn main(argc: isize, argv: *mut *mut c_char, envp: *mut *mut c_char) -> c_int;
+        /// Implements relibc start v1.
         fn relibc_start_v1(
             sp: usize,
             main: unsafe extern "C" fn(
@@ -94,12 +97,17 @@ pub unsafe extern "C" fn relibc_crt0(sp: usize) -> ! {
 
 #[linkage = "weak"]
 #[unsafe(no_mangle)]
+/// Implements relibc panic.
 pub extern "C" fn relibc_panic(_pi: &::core::panic::PanicInfo) -> ! {
     loop {}
 }
 
 #[panic_handler]
 #[linkage = "weak"]
+/// Implements rust begin unwind.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn rust_begin_unwind(pi: &::core::panic::PanicInfo) -> ! {
     relibc_panic(pi)
 }

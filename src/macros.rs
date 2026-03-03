@@ -448,7 +448,9 @@ for_primitive_int!(i64);
 for_primitive_int!(i128);
 for_primitive_int!(isize);
 impl LibcTypeEquals<crate::platform::types::c_void, crate::platform::types::c_void> for () {}
+#[cfg(feature = "check_against_libc_crate")]
 impl LibcTypeEquals<__libc_only_for_layout_checks::c_void, crate::platform::types::c_void> for () {}
+#[cfg(feature = "check_against_libc_crate")]
 impl LibcTypeEquals<crate::platform::types::c_void, __libc_only_for_layout_checks::c_void> for () {}
 
 //impl LibcTypeEquals<__libc_only_for_layout_checks::c_void>
@@ -485,6 +487,7 @@ macro_rules! CheckVsLibcCrate {
             #[allow(dead_code)]
             const _: () = {
                 fn ensure_ty<A, B>(a: A, b: B) where (): $crate::macros::LibcTypeEquals::<A, B> {}
+                /// Implements for libc.
                 fn for_libc(a: $name, b: __libc_only_for_layout_checks::$name) {
                     let a: $type = panic!("never called");
                     ensure_ty(a, b.$field);

@@ -17,10 +17,18 @@ pub struct Mutex<T> {
 unsafe impl<T: Send> Send for Mutex<T> {}
 unsafe impl<T: Send> Sync for Mutex<T> {}
 
+/// Implements manual try lock generic.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(crate) unsafe fn manual_try_lock_generic(word: &AtomicInt) -> bool {
     word.compare_exchange(UNLOCKED, LOCKED, Ordering::Acquire, Ordering::Relaxed)
         .is_ok()
 }
+/// Implements manual lock generic.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(crate) unsafe fn manual_lock_generic(word: &AtomicInt) {
     crate::sync::wait_until_generic(
         word,
@@ -44,6 +52,10 @@ pub(crate) unsafe fn manual_lock_generic(word: &AtomicInt) {
         WAITING,
     );
 }
+/// Implements manual unlock generic.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(crate) unsafe fn manual_unlock_generic(word: &AtomicInt) {
     if word.swap(UNLOCKED, Ordering::Release) == WAITING {
         crate::sync::futex_wake(word, i32::MAX);
@@ -93,6 +105,7 @@ impl<T> Mutex<T> {
     pub unsafe fn manual_unlock(&self) {
         unsafe { manual_unlock_generic(&self.lock) }
     }
+    /// Implements as ptr.
     pub fn as_ptr(&self) -> *mut T {
         self.content.get()
     }
@@ -124,16 +137,19 @@ pub struct MutexGuard<'a, T: 'a> {
 impl<'a, T> Deref for MutexGuard<'a, T> {
     type Target = T;
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         &self.content
     }
 }
 impl<'a, T> DerefMut for MutexGuard<'a, T> {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.content
     }
 }
 impl<'a, T> Drop for MutexGuard<'a, T> {
+    /// Implements drop.
     fn drop(&mut self) {
         unsafe {
             self.mutex.manual_unlock();

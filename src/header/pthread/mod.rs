@@ -20,6 +20,7 @@ use crate::{
     pthread,
 };
 
+/// Implements e.
 pub fn e(result: Result<(), Errno>) -> i32 {
     match result {
         Ok(()) => 0,
@@ -322,6 +323,7 @@ pub(crate) static CLEANUP_LL_HEAD: Cell<*const CleanupLinkedListEntry> =
 // TODO: unwind? setjmp/longjmp?
 
 #[unsafe(no_mangle)]
+/// Implements relibc internal pthread cleanup push.
 pub unsafe extern "C" fn __relibc_internal_pthread_cleanup_push(new_entry: *mut c_void) {
     let new_entry = unsafe { &mut *new_entry.cast::<CleanupLinkedListEntry>() };
 
@@ -329,6 +331,7 @@ pub unsafe extern "C" fn __relibc_internal_pthread_cleanup_push(new_entry: *mut 
     CLEANUP_LL_HEAD.set(new_entry);
 }
 #[unsafe(no_mangle)]
+/// Implements relibc internal pthread cleanup pop.
 pub unsafe extern "C" fn __relibc_internal_pthread_cleanup_pop(execute: c_int) {
     let prev_head = unsafe { CLEANUP_LL_HEAD.get().read() };
     CLEANUP_LL_HEAD.set(prev_head.prev.cast());
@@ -338,6 +341,10 @@ pub unsafe extern "C" fn __relibc_internal_pthread_cleanup_pop(execute: c_int) {
     }
 }
 
+/// Implements run destructor stack.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(crate) unsafe fn run_destructor_stack() {
     unsafe { crate::cxa::__cxa_thread_finalize() };
 

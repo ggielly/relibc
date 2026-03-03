@@ -4,6 +4,7 @@ use crate::{
 };
 
 #[unsafe(no_mangle)]
+/// Implements fpending.
 pub extern "C" fn __fpending(stream: *mut FILE) -> size_t {
     let stream = unsafe { &mut *stream }.lock();
 
@@ -11,6 +12,7 @@ pub extern "C" fn __fpending(stream: *mut FILE) -> size_t {
 }
 
 #[unsafe(no_mangle)]
+/// Implements freadable.
 pub extern "C" fn __freadable(stream: *mut FILE) -> c_int {
     let stream = unsafe { &mut *stream }.lock();
 
@@ -18,6 +20,7 @@ pub extern "C" fn __freadable(stream: *mut FILE) -> c_int {
 }
 
 #[unsafe(no_mangle)]
+/// Implements fwritable.
 pub extern "C" fn __fwritable(stream: *mut FILE) -> c_int {
     let stream = unsafe { &mut *stream }.lock();
 
@@ -26,6 +29,7 @@ pub extern "C" fn __fwritable(stream: *mut FILE) -> c_int {
 
 //TODO: Check last operation when read-write
 #[unsafe(no_mangle)]
+/// Implements freading.
 pub extern "C" fn __freading(stream: *mut FILE) -> c_int {
     let stream = unsafe { &mut *stream }.lock();
 
@@ -34,6 +38,7 @@ pub extern "C" fn __freading(stream: *mut FILE) -> c_int {
 
 //TODO: Check last operation when read-write
 #[unsafe(no_mangle)]
+/// Implements fwriting.
 pub extern "C" fn __fwriting(stream: *mut FILE) -> c_int {
     let stream = unsafe { &mut *stream }.lock();
 

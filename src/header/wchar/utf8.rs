@@ -39,11 +39,16 @@ static UTF8_CHAR_WIDTH: [u8; 256] = [
 
 // Given a first byte, determines how many bytes are in this UTF-8 character.
 #[inline]
+/// Implements utf8 char width.
 fn utf8_char_width(b: u8) -> usize {
     UTF8_CHAR_WIDTH[usize::from(b)].into()
 }
 
 //It's guaranteed that we don't have any nullpointers here
+/// Implements mbrtowc.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn mbrtowc(pwc: *mut wchar_t, s: *const c_char, n: usize, ps: *mut mbstate_t) -> usize {
     let size = utf8_char_width(unsafe { *s } as u8);
     if size > n {
@@ -74,6 +79,10 @@ pub unsafe fn mbrtowc(pwc: *mut wchar_t, s: *const c_char, n: usize, ps: *mut mb
 }
 
 //It's guaranteed that we don't have any nullpointers here
+/// Implements wcrtomb.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn wcrtomb(s: *mut c_char, wc: wchar_t, ps: *mut mbstate_t) -> usize {
     let dc = char::from_u32(wc as u32);
 

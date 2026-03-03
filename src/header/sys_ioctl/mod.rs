@@ -22,6 +22,7 @@ pub struct winsize {
 }
 
 impl winsize {
+    /// Returns get row col.
     pub fn get_row_col(&self) -> (c_ushort, c_ushort) {
         (self.ws_row, self.ws_col)
     }

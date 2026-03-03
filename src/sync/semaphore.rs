@@ -16,6 +16,7 @@ pub struct Semaphore {
 }
 
 impl Semaphore {
+    /// Creates a new instance.
     pub const fn new(value: c_uint) -> Self {
         Self {
             count: AtomicU32::new(value),
@@ -24,12 +25,14 @@ impl Semaphore {
 
     // TODO: Acquire-Release ordering?
 
+    /// Implements post.
     pub fn post(&self, count: c_uint) {
         self.count.fetch_add(count, Ordering::SeqCst);
         // TODO: notify one?
         crate::sync::futex_wake(&self.count, i32::MAX);
     }
 
+    /// Implements try wait.
     pub fn try_wait(&self) -> u32 {
         loop {
             let value = self.count.load(Ordering::SeqCst);
@@ -54,6 +57,7 @@ impl Semaphore {
         }
     }
 
+    /// Implements wait.
     pub fn wait(&self, timeout_opt: Option<&timespec>, clock_id: clockid_t) -> Result<(), ()> {
         loop {
             let value = self.try_wait();
@@ -79,6 +83,7 @@ impl Semaphore {
             }
         }
     }
+    /// Implements value.
     pub fn value(&self) -> c_uint {
         self.count.load(Ordering::SeqCst)
     }

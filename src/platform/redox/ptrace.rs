@@ -48,6 +48,7 @@ pub struct State {
     pub sessions: Mutex<BTreeMap<pid_t, Session>>,
 }
 impl State {
+    /// Creates a new instance.
     fn new() -> Self {
         Self {
             sessions: Mutex::new(BTreeMap::new()),
@@ -58,6 +59,7 @@ impl State {
 #[thread_local]
 static STATE: RawCell<Option<State>> = RawCell::new(None);
 
+/// Implements init state.
 pub fn init_state() -> &'static State {
     // Safe due to STATE being thread_local (TODO: is it though?)
     unsafe {
@@ -68,6 +70,7 @@ pub fn init_state() -> &'static State {
         &*state_ptr
     }
 }
+/// Checks whether is traceme.
 pub fn is_traceme(pid: pid_t) -> bool {
     // Skip special PIDs (<=0)
     if pid <= 0 {
@@ -79,6 +82,7 @@ pub fn is_traceme(pid: pid_t) -> bool {
     )
     .is_ok()
 }
+/// Returns get session.
 pub fn get_session(
     sessions: &mut BTreeMap<pid_t, Session>,
     pid: pid_t,
@@ -121,6 +125,10 @@ pub fn get_session(
 }
 
 #[cfg(target_arch = "aarch64")]
+/// Implements inner ptrace.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_ptrace(
     request: c_int,
     pid: pid_t,
@@ -132,6 +140,10 @@ unsafe fn inner_ptrace(
 }
 
 #[cfg(target_arch = "x86")]
+/// Implements inner ptrace.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_ptrace(
     request: c_int,
     pid: pid_t,
@@ -143,6 +155,10 @@ unsafe fn inner_ptrace(
 }
 
 #[cfg(target_arch = "x86_64")]
+/// Implements inner ptrace.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_ptrace(
     request: c_int,
     pid: pid_t,
@@ -270,6 +286,7 @@ unsafe fn inner_ptrace(
 }
 
 #[cfg(target_arch = "riscv64")]
+/// Implements inner ptrace.
 fn inner_ptrace(
     request: c_int,
     pid: pid_t,
@@ -282,6 +299,10 @@ fn inner_ptrace(
 
 impl PalPtrace for Sys {
     #[allow(unused_unsafe)] // keeping inner unsafe fails x86_64, removing fails riscv cross-build
+    /// Implements ptrace.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn ptrace(
         request: c_int,
         pid: pid_t,

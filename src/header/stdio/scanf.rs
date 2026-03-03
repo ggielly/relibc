@@ -25,6 +25,10 @@ unsafe fn next_byte(string: &mut *const c_char) -> Result<u8, c_int> {
     if c == 0 { Err(-1) } else { Ok(c) }
 }
 
+/// Implements inner scanf.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn inner_scanf(
     mut r: LookAheadReader,
     mut format: *const c_char,
@@ -467,6 +471,10 @@ unsafe fn inner_scanf(
     Ok(matched)
 }
 
+/// Implements scanf.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn scanf(r: LookAheadReader, format: *const c_char, ap: va_list) -> c_int {
     match unsafe { inner_scanf(r, format, ap) } {
         Ok(n) => n,

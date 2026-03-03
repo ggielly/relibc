@@ -12,15 +12,12 @@ mod sys;
 #[path = "sysconf/strat9.rs"]
 mod sys;
 
-#[cfg(target_os = "strat9")]
-#[path = "sysconf/strat9.rs"]
-mod sys;
-
 pub use sys::*;
 
 use core::ffi::{c_int, c_long};
 
 #[unsafe(no_mangle)]
+/// Implements sysconf.
 pub unsafe extern "C" fn sysconf(name: c_int) -> c_long {
     sysconf_impl(name)
 }

@@ -49,6 +49,10 @@ pub const SIZEOF_EHDR: usize = 52;
 #[cfg(target_pointer_width = "64")]
 pub const SIZEOF_EHDR: usize = 64;
 
+/// Returns get argv.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn get_argv(mut ptr: *const usize) -> (Vec<String>, *const usize) {
     //traverse the stack and collect argument vector
     let mut argv = Vec::new();
@@ -67,6 +71,10 @@ unsafe fn get_argv(mut ptr: *const usize) -> (Vec<String>, *const usize) {
     (argv, ptr)
 }
 
+/// Returns get env.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn get_env(mut ptr: *const usize) -> (BTreeMap<String, String>, *const usize) {
     //traverse the stack and collect argument environment variables
     let mut envs = BTreeMap::new();
@@ -87,6 +95,10 @@ unsafe fn get_env(mut ptr: *const usize) -> (BTreeMap<String, String>, *const us
 }
 
 #[allow(unsafe_op_in_unsafe_fn)]
+/// Implements adjust stack.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 unsafe fn adjust_stack(sp: &'static mut Stack) {
     let mut argv = sp.argv() as *mut usize;
 
@@ -129,6 +141,7 @@ unsafe fn adjust_stack(sp: &'static mut Stack) {
     sp.argc -= 1;
 }
 
+/// Implements resolve path name.
 fn resolve_path_name(
     name_or_path: &str,
     envs: &BTreeMap<String, String>,
@@ -163,6 +176,7 @@ fn resolve_path_name(
 }
 
 #[unsafe(no_mangle)]
+/// Implements relibc ld so start.
 pub unsafe extern "C" fn relibc_ld_so_start(
     sp: &'static mut Stack,
     ld_entry: usize,
@@ -306,6 +320,7 @@ pub unsafe extern "C" fn relibc_ld_so_start(
     stage2(sp, self_base, is_manual, base_addr)
 }
 
+/// Implements stage2.
 fn stage2(
     sp: &'static mut Stack,
     self_base: usize,

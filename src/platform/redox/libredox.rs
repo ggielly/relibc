@@ -18,6 +18,7 @@ use super::Sys;
 
 pub type RawResult = usize;
 
+/// Implements open.
 pub fn open(path: &str, oflag: c_int, mode: mode_t) -> Result<usize> {
     let usize_fd = super::path::open(
         path,
@@ -32,6 +33,7 @@ pub fn open(path: &str, oflag: c_int, mode: mode_t) -> Result<usize> {
         .map(|f| f as usize)
 }
 
+/// Implements openat.
 pub fn openat(dirfd: c_int, path: &str, oflag: c_int, mode: mode_t) -> Result<usize> {
     let usize_fd = super::path::openat(
         dirfd,
@@ -47,6 +49,10 @@ pub fn openat(dirfd: c_int, path: &str, oflag: c_int, mode: mode_t) -> Result<us
         .map(|f| f as usize)
 }
 
+/// Implements fstat.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn fstat(fd: usize, buf: *mut crate::header::sys_stat::stat) -> Result<()> {
     let mut redox_buf: syscall::Stat = Default::default();
     syscall::fstat(fd, &mut redox_buf)?;
@@ -78,6 +84,10 @@ pub unsafe fn fstat(fd: usize, buf: *mut crate::header::sys_stat::stat) -> Resul
     }
     Ok(())
 }
+/// Implements fstatvfs.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn fstatvfs(
     fd: usize,
     buf: *mut crate::header::sys_statvfs::statvfs,
@@ -103,6 +113,10 @@ pub unsafe fn fstatvfs(
     }
     Ok(())
 }
+/// Implements futimens.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn futimens(fd: usize, times: *const timespec) -> syscall::Result<()> {
     let times = if times.is_null() {
         // null means set to current time using special UTIME_NOW value (tv_sec is ignored in that case)
@@ -123,6 +137,7 @@ pub unsafe fn futimens(fd: usize, times: *const timespec) -> syscall::Result<()>
     Ok(())
 }
 /* std_fs_call
+/// Implements std fs call getdents.
 pub fn std_fs_call_getdents(fd: usize, buf: &mut [u8], opaque: u64) -> Result<usize> {
     //println!("GETDENTS {} into ({:p}+{})", fd, buf.as_ptr(), buf.len());
 
@@ -177,6 +192,10 @@ pub fn std_fs_call_getdents(fd: usize, buf: &mut [u8], opaque: u64) -> Result<us
 
     Ok(record_len.into())
 }
+/// Implements std fs call fstat.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn std_fs_call_fstat(fd: usize, buf: *mut crate::header::sys_stat::stat) -> Result<()> {
     let mut redox_buf: syscall::Stat = Default::default();
     std_fs_call_ro(
@@ -212,6 +231,10 @@ pub unsafe fn std_fs_call_fstat(fd: usize, buf: *mut crate::header::sys_stat::st
     }
     Ok(())
 }
+/// Implements std fs call fstatvfs.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn std_fs_call_fstatvfs(
     fd: usize,
     buf: *mut crate::header::sys_statvfs::statvfs,
@@ -241,6 +264,10 @@ pub unsafe fn std_fs_call_fstatvfs(
     }
     Ok(())
 }
+/// Implements std fs call futimens.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn std_fs_call_futimens(fd: usize, times: *const timespec) -> Result<()> {
     let times = if times.is_null() {
         // null means set to current time using special UTIME_NOW value (tv_sec is ignored in that case)
@@ -271,6 +298,7 @@ pub unsafe fn std_fs_call_futimens(fd: usize, times: *const timespec) -> Result<
     Ok(())
 }
 */
+/// Implements clock gettime.
 pub fn clock_gettime(clock: usize, mut tp: Out<timespec>) -> Result<()> {
     let mut redox_tp = syscall::TimeSpec::default();
     syscall::clock_gettime(clock as usize, &mut redox_tp)?;
@@ -282,6 +310,7 @@ pub fn clock_gettime(clock: usize, mut tp: Out<timespec>) -> Result<()> {
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox open v1.
 pub unsafe extern "C" fn redox_open_v1(
     path_base: *const u8,
     path_len: usize,
@@ -295,6 +324,7 @@ pub unsafe extern "C" fn redox_open_v1(
     ))
 }
 #[unsafe(no_mangle)]
+/// Implements redox openat v1.
 pub unsafe extern "C" fn redox_openat_v1(
     fd: usize,
     path_base: *const u8,
@@ -310,12 +340,14 @@ pub unsafe extern "C" fn redox_openat_v1(
     ))
 }
 #[unsafe(no_mangle)]
+/// Implements redox dup v1.
 pub unsafe extern "C" fn redox_dup_v1(fd: usize, buf: *const u8, len: usize) -> RawResult {
     Error::mux(syscall::dup(fd, unsafe {
         core::slice::from_raw_parts(buf, len)
     }))
 }
 #[unsafe(no_mangle)]
+/// Implements redox dup2 v1.
 pub unsafe extern "C" fn redox_dup2_v1(
     old_fd: usize,
     new_fd: usize,
@@ -327,12 +359,14 @@ pub unsafe extern "C" fn redox_dup2_v1(
     }))
 }
 #[unsafe(no_mangle)]
+/// Implements redox read v1.
 pub unsafe extern "C" fn redox_read_v1(fd: usize, dst_base: *mut u8, dst_len: usize) -> RawResult {
     Error::mux(posix_read(fd, unsafe {
         slice::from_raw_parts_mut(dst_base, dst_len)
     }))
 }
 #[unsafe(no_mangle)]
+/// Implements redox write v1.
 pub unsafe extern "C" fn redox_write_v1(
     fd: usize,
     src_base: *const u8,
@@ -343,6 +377,7 @@ pub unsafe extern "C" fn redox_write_v1(
     }))
 }
 #[unsafe(no_mangle)]
+/// Implements redox fchmod v1.
 pub unsafe extern "C" fn redox_fchmod_v1(fd: usize, new_mode: u16) -> RawResult {
     /* std_fs_call
     Error::mux(std_fs_call_wo(
@@ -354,6 +389,7 @@ pub unsafe extern "C" fn redox_fchmod_v1(fd: usize, new_mode: u16) -> RawResult 
     Error::mux(syscall::fchmod(fd, new_mode))
 }
 #[unsafe(no_mangle)]
+/// Implements redox fchown v1.
 pub unsafe extern "C" fn redox_fchown_v1(fd: usize, new_uid: u32, new_gid: u32) -> RawResult {
     /* std_fs_call
     Error::mux(std_fs_call_wo(
@@ -369,6 +405,7 @@ pub unsafe extern "C" fn redox_fchown_v1(fd: usize, new_uid: u32, new_gid: u32) 
     Error::mux(syscall::fchown(fd, new_uid, new_gid))
 }
 #[unsafe(no_mangle)]
+/// Implements redox getdents v0.
 pub unsafe extern "C" fn redox_getdents_v0(
     fd: usize,
     buf: *mut u8,
@@ -385,6 +422,7 @@ pub unsafe extern "C" fn redox_getdents_v0(
     )
 }
 #[unsafe(no_mangle)]
+/// Implements redox fstat v1.
 pub unsafe extern "C" fn redox_fstat_v1(
     fd: usize,
     stat: *mut crate::header::sys_stat::stat,
@@ -392,6 +430,7 @@ pub unsafe extern "C" fn redox_fstat_v1(
     Error::mux(unsafe { fstat(fd, stat) }.map(|()| 0))
 }
 #[unsafe(no_mangle)]
+/// Implements redox fstatvfs v1.
 pub unsafe extern "C" fn redox_fstatvfs_v1(
     fd: usize,
     stat: *mut crate::header::sys_statvfs::statvfs,
@@ -399,6 +438,7 @@ pub unsafe extern "C" fn redox_fstatvfs_v1(
     Error::mux(unsafe { fstatvfs(fd, stat) }.map(|()| 0))
 }
 #[unsafe(no_mangle)]
+/// Implements redox fsync v1.
 pub unsafe extern "C" fn redox_fsync_v1(fd: usize) -> RawResult {
     /* std_fs_call
     Error::mux(std_fs_call_wo(
@@ -410,6 +450,7 @@ pub unsafe extern "C" fn redox_fsync_v1(fd: usize) -> RawResult {
     Error::mux(syscall::fsync(fd))
 }
 #[unsafe(no_mangle)]
+/// Implements redox fdatasync v1.
 pub unsafe extern "C" fn redox_fdatasync_v1(fd: usize) -> RawResult {
     /* std_fs_call
     Error::mux(std_fs_call_wo(
@@ -422,6 +463,7 @@ pub unsafe extern "C" fn redox_fdatasync_v1(fd: usize) -> RawResult {
     Error::mux(syscall::fsync(fd))
 }
 #[unsafe(no_mangle)]
+/// Implements redox ftruncate v0.
 pub unsafe extern "C" fn redox_ftruncate_v0(fd: usize, len: usize) -> RawResult {
     /* std_fs_call
     Error::mux(std_fs_call_wo(
@@ -433,11 +475,13 @@ pub unsafe extern "C" fn redox_ftruncate_v0(fd: usize, len: usize) -> RawResult 
     Error::mux(syscall::ftruncate(fd as usize, len as usize))
 }
 #[unsafe(no_mangle)]
+/// Implements redox futimens v1.
 pub unsafe extern "C" fn redox_futimens_v1(fd: usize, times: *const timespec) -> RawResult {
     Error::mux(unsafe { futimens(fd, times) }.map(|()| 0))
 }
 /* TODO: Support unlinkat
 #[unsafe(no_mangle)]
+/// Implements redox unlinkat v0.
 pub unsafe extern "C" fn redox_unlinkat_v0(
     fd: usize,
     path_base: *const u8,
@@ -452,47 +496,57 @@ pub unsafe extern "C" fn redox_unlinkat_v0(
 }
 */
 #[unsafe(no_mangle)]
+/// Implements redox fpath v1.
 pub unsafe extern "C" fn redox_fpath_v1(fd: usize, dst_base: *mut u8, dst_len: usize) -> RawResult {
     Error::mux(syscall::fpath(fd, unsafe {
         core::slice::from_raw_parts_mut(dst_base, dst_len)
     }))
 }
 #[unsafe(no_mangle)]
+/// Implements redox close v1.
 pub unsafe extern "C" fn redox_close_v1(fd: usize) -> RawResult {
     Error::mux(syscall::close(fd))
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox get pid v1.
 pub unsafe extern "C" fn redox_get_pid_v1() -> RawResult {
     redox_rt::sys::posix_getpid() as _
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox get euid v1.
 pub unsafe extern "C" fn redox_get_euid_v1() -> RawResult {
     redox_rt::sys::posix_getresugid().euid as _
 }
 #[unsafe(no_mangle)]
+/// Implements redox get ruid v1.
 pub unsafe extern "C" fn redox_get_ruid_v1() -> RawResult {
     redox_rt::sys::posix_getresugid().ruid as _
 }
 #[unsafe(no_mangle)]
+/// Implements redox get egid v1.
 pub unsafe extern "C" fn redox_get_egid_v1() -> RawResult {
     redox_rt::sys::posix_getresugid().egid as _
 }
 #[unsafe(no_mangle)]
+/// Implements redox get rgid v1.
 pub unsafe extern "C" fn redox_get_rgid_v1() -> RawResult {
     redox_rt::sys::posix_getresugid().rgid as _
 }
 #[unsafe(no_mangle)]
+/// Implements redox get ens v0.
 pub unsafe extern "C" fn redox_get_ens_v0() -> RawResult {
     Error::mux(redox_rt::sys::getens())
 }
 #[unsafe(no_mangle)]
+/// Implements redox get ns v0.
 pub unsafe extern "C" fn redox_get_ns_v0() -> RawResult {
     Error::mux(redox_rt::sys::getns())
 }
 #[allow(improper_ctypes_definitions)]
 #[unsafe(no_mangle)]
+/// Implements redox get proc credentials v1.
 pub unsafe extern "C" fn redox_get_proc_credentials_v1(
     cap_fd: usize,
     target_pid: usize,
@@ -502,6 +556,7 @@ pub unsafe extern "C" fn redox_get_proc_credentials_v1(
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox setrens v1.
 pub unsafe extern "C" fn redox_setrens_v1(rns: usize, ens: usize) -> RawResult {
     let _ = if ens == 0 {
         let null_namespace: [IoSlice; 2] = [IoSlice::new(b"memory"), IoSlice::new(b"pipe")];
@@ -515,6 +570,7 @@ pub unsafe extern "C" fn redox_setrens_v1(rns: usize, ens: usize) -> RawResult {
     0
 }
 #[unsafe(no_mangle)]
+/// Implements redox waitpid v1.
 pub unsafe extern "C" fn redox_waitpid_v1(pid: usize, status: *mut i32, options: u32) -> RawResult {
     let mut sts = 0_usize;
     let res = Error::mux(redox_rt::sys::sys_waitpid(
@@ -527,6 +583,7 @@ pub unsafe extern "C" fn redox_waitpid_v1(pid: usize, status: *mut i32, options:
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox kill v1.
 pub unsafe extern "C" fn redox_kill_v1(pid: usize, signal: u32) -> RawResult {
     Error::mux(
         redox_rt::sys::posix_kill(ProcKillTarget::from_raw(pid), signal as usize).map(|()| 0),
@@ -534,6 +591,7 @@ pub unsafe extern "C" fn redox_kill_v1(pid: usize, signal: u32) -> RawResult {
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox sigaction v1.
 pub unsafe extern "C" fn redox_sigaction_v1(
     signal: u32,
     new: *const sigaction,
@@ -549,6 +607,7 @@ pub unsafe extern "C" fn redox_sigaction_v1(
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox sigprocmask v1.
 pub unsafe extern "C" fn redox_sigprocmask_v1(
     how: u32,
     new: *const u64,
@@ -563,6 +622,7 @@ pub unsafe extern "C" fn redox_sigprocmask_v1(
     )
 }
 #[unsafe(no_mangle)]
+/// Implements redox mmap v1.
 pub unsafe extern "C" fn redox_mmap_v1(
     addr: *mut (),
     unaligned_len: usize,
@@ -586,16 +646,19 @@ pub unsafe extern "C" fn redox_mmap_v1(
     })
 }
 #[unsafe(no_mangle)]
+/// Implements redox munmap v1.
 pub unsafe extern "C" fn redox_munmap_v1(addr: *mut (), unaligned_len: usize) -> RawResult {
     Error::mux(unsafe { syscall::funmap(addr as usize, unaligned_len) })
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox clock gettime v1.
 pub unsafe extern "C" fn redox_clock_gettime_v1(clock: usize, ts: *mut timespec) -> RawResult {
     Error::mux(clock_gettime(clock, unsafe { Out::nonnull(ts) }).map(|()| 0))
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox strerror v1.
 pub unsafe extern "C" fn redox_strerror_v1(
     buf: *mut u8,
     buflen: *mut usize,
@@ -627,6 +690,7 @@ pub unsafe extern "C" fn redox_strerror_v1(
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox mkns v1.
 pub unsafe extern "C" fn redox_mkns_v1(
     names: *const iovec,
     num_names: usize,
@@ -651,16 +715,19 @@ pub unsafe extern "C" fn redox_mkns_v1(
 
 // ABI-UNSTABLE
 #[unsafe(no_mangle)]
+/// Implements redox cur procfd v0.
 pub unsafe extern "C" fn redox_cur_procfd_v0() -> usize {
     redox_rt::current_proc_fd().as_raw_fd()
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox cur thrfd v0.
 pub unsafe extern "C" fn redox_cur_thrfd_v0() -> usize {
     redox_rt::RtTcb::current().thread_fd().as_raw_fd()
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox sys call v0.
 pub unsafe extern "C" fn redox_sys_call_v0(
     fd: usize,
     payload: *mut u8,
@@ -678,6 +745,7 @@ pub unsafe extern "C" fn redox_sys_call_v0(
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox get socket token v0.
 pub unsafe extern "C" fn redox_get_socket_token_v0(
     fd: usize,
     payload: *mut u8,
@@ -693,6 +761,7 @@ pub unsafe extern "C" fn redox_get_socket_token_v0(
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox setns v0.
 pub unsafe extern "C" fn redox_setns_v0(fd: usize) -> RawResult {
     match redox_rt::sys::setns(fd) {
         Some(guard) => guard.take(),
@@ -701,6 +770,7 @@ pub unsafe extern "C" fn redox_setns_v0(fd: usize) -> RawResult {
 }
 
 #[unsafe(no_mangle)]
+/// Implements redox register scheme to ns v0.
 pub unsafe extern "C" fn redox_register_scheme_to_ns_v0(
     ns_fd: usize,
     name_base: *const u8,

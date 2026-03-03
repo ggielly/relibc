@@ -44,19 +44,23 @@ pub enum AttemptStatus {
 }
 
 pub trait FutexTy {
+    /// Implements conv.
     fn conv(self) -> u32;
 }
 pub trait FutexAtomicTy {
     type Ty: FutexTy;
 
+    /// Implements ptr.
     fn ptr(&self) -> *mut Self::Ty;
 }
 impl FutexTy for u32 {
+    /// Implements conv.
     fn conv(self) -> u32 {
         self
     }
 }
 impl FutexTy for i32 {
+    /// Implements conv.
     fn conv(self) -> u32 {
         self as u32
     }
@@ -64,6 +68,7 @@ impl FutexTy for i32 {
 impl FutexAtomicTy for AtomicU32 {
     type Ty = u32;
 
+    /// Implements ptr.
     fn ptr(&self) -> *mut u32 {
         // TODO: Change when Redox's toolchain is updated. This is not about targets, but compiler
         // versions!
@@ -85,6 +90,7 @@ impl FutexAtomicTy for AtomicU32 {
 impl FutexAtomicTy for AtomicI32 {
     type Ty = i32;
 
+    /// Implements ptr.
     fn ptr(&self) -> *mut i32 {
         // TODO
         /*#[cfg(target_os = "redox")]
@@ -97,6 +103,10 @@ impl FutexAtomicTy for AtomicI32 {
     }
 }
 
+/// Implements futex wake ptr.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub unsafe fn futex_wake_ptr(ptr: *mut impl FutexTy, n: i32) -> usize {
     // TODO: unwrap_unchecked?
     unsafe { Sys::futex_wake(ptr.cast(), n as u32) }.unwrap() as usize
@@ -116,6 +126,7 @@ pub unsafe fn futex_wait_ptr<T: FutexTy>(
         }
     }
 }
+/// Implements futex wake.
 pub fn futex_wake(atomic: &impl FutexAtomicTy, n: i32) -> usize {
     unsafe { futex_wake_ptr(atomic.ptr(), n) }
 }
@@ -134,6 +145,7 @@ pub enum FutexWaitResult {
     TimedOut,
 }
 
+/// Implements rttime.
 pub fn rttime() -> timespec {
     unsafe {
         let mut time = MaybeUninit::uninit();
@@ -192,20 +204,25 @@ pub(crate) struct AtomicLock {
     pub(crate) atomic: AtomicInt,
 }
 impl AtomicLock {
+    /// Creates a new instance.
     pub const fn new(value: c_int) -> Self {
         Self {
             atomic: AtomicInt::new(value),
         }
     }
+    /// Implements notify one.
     pub fn notify_one(&self) {
         futex_wake(&self.atomic, 1);
     }
+    /// Implements notify all.
     pub fn notify_all(&self) {
         futex_wake(&self.atomic, i32::MAX);
     }
+    /// Implements wait if.
     pub fn wait_if(&self, value: c_int, timeout_opt: Option<&timespec>) {
         self.wait_if_raw(value, timeout_opt);
     }
+    /// Implements wait if raw.
     pub fn wait_if_raw(&self, value: c_int, timeout_opt: Option<&timespec>) -> FutexWaitResult {
         futex_wait(&self.atomic, value, timeout_opt)
     }
@@ -240,6 +257,7 @@ impl AtomicLock {
 impl Deref for AtomicLock {
     type Target = AtomicInt;
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         &self.atomic
     }

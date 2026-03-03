@@ -22,6 +22,7 @@ pub struct LogFile(BufWriter<File>);
 impl LogSink for LogFile {
     type Sink = BufWriter<File>;
 
+    /// Implements open.
     fn open() -> Result<Self>
     where
         Self: Sized,
@@ -68,6 +69,7 @@ impl LogSink for LogFile {
     }
 
     #[inline(always)]
+    /// Implements writer.
     fn writer(&mut self) -> &mut Self::Sink {
         &mut self.0
     }

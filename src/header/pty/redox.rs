@@ -7,6 +7,10 @@ use crate::{
     },
 };
 
+/// Implements openpty.
+///
+/// # Safety
+/// The caller must uphold the required pointer and ABI invariants.
 pub(super) unsafe fn openpty(name: &mut [u8]) -> Result<(c_int, c_int), ()> {
     let master = unsafe { fcntl::open(c"/scheme/pty".as_ptr(), fcntl::O_RDWR, 0) };
     if master < 0 {

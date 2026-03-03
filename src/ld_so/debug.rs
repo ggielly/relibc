@@ -45,6 +45,7 @@ impl RTLDDebug {
         r_ldbase: 0,
     };
 
+    /// Implements insert.
     pub fn insert(&mut self, l_addr: usize, name: &str, l_ld: usize) {
         if self.r_map.is_null() {
             self.r_map = LinkMap::new_with_args(l_addr, name, l_ld);
@@ -52,6 +53,7 @@ impl RTLDDebug {
             unsafe { (*self.r_map).add_object(l_addr, name, l_ld) };
         }
     }
+    /// Implements insert first.
     pub fn insert_first(&mut self, l_addr: usize, name: &str, l_ld: usize) {
         if self.r_map.is_null() {
             self.r_map = LinkMap::new_with_args(l_addr, name, l_ld);
@@ -88,6 +90,7 @@ struct LinkMap {
 }
 
 impl LinkMap {
+    /// Creates a new instance.
     fn new() -> *mut Self {
         let map = Box::new(LinkMap {
             l_addr: 0,
@@ -98,10 +101,12 @@ impl LinkMap {
         });
         Box::into_raw(map)
     }
+    /// Implements link.
     fn link(&mut self, map: &mut LinkMap) {
         map.l_prev = ptr::from_mut::<LinkMap>(self);
         self.l_next = ptr::from_mut::<LinkMap>(map);
     }
+    /// Implements new with args.
     fn new_with_args(l_addr: usize, name: &str, l_ld: usize) -> *mut Self {
         let map = LinkMap::new();
         unsafe {
@@ -113,6 +118,7 @@ impl LinkMap {
         map
     }
 
+    /// Implements add object.
     fn add_object(&mut self, l_addr: usize, name: &str, l_ld: usize) {
         let node = LinkMap::new_with_args(l_addr, name, l_ld);
         let mut last = self;
@@ -132,6 +138,7 @@ impl LinkMap {
  */
 #[linkage = "weak"]
 #[unsafe(no_mangle)]
+/// Implements dl debug state.
 pub extern "C" fn _dl_debug_state() {}
 
 #[unsafe(no_mangle)]

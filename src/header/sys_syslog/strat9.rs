@@ -9,6 +9,7 @@ impl LogSink for LogFile {
     type Sink = BufWriter<File>;
 
     #[inline(always)]
+    /// Implements open.
     fn open() -> Result<Self> {
         // In Strat9-OS, we'll write logs to a special logging endpoint
         // For now, we'll use a placeholder path - this would be replaced with
@@ -17,6 +18,7 @@ impl LogSink for LogFile {
     }
 
     #[inline(always)]
+    /// Implements writer.
     fn writer(&mut self) -> &mut Self::Sink {
         &mut self.0
     }

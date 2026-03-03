@@ -5,6 +5,10 @@ use super::{
 use crate::error::Result;
 
 impl PalPtrace for Sys {
+    /// Implements ptrace.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn ptrace(
         request: c_int,
         pid: pid_t,

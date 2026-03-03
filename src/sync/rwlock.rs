@@ -20,11 +20,13 @@ const EXCLUSIVE: u32 = COUNT_MASK;
 // TODO: Add futex ops that use bitmasks.
 
 impl InnerRwLock {
+    /// Creates a new instance.
     pub const fn new(_pshared: Pshared) -> Self {
         Self {
             state: AtomicU32::new(0),
         }
     }
+    /// Implements acquire write lock.
     pub fn acquire_write_lock(&self, deadline: Option<&timespec>) {
         let mut waiting_wr = self.state.load(Ordering::Relaxed) & WAITING_WR;
 
@@ -62,12 +64,14 @@ impl InnerRwLock {
             }
         }
     }
+    /// Implements acquire read lock.
     pub fn acquire_read_lock(&self, deadline: Option<&timespec>) {
         // TODO: timeout
         while let Err(old) = self.try_acquire_read_lock() {
             crate::sync::futex_wait(&self.state, old, deadline);
         }
     }
+    /// Implements try acquire read lock.
     pub fn try_acquire_read_lock(&self) -> Result<(), u32> {
         let mut cached = self.state.load(Ordering::Acquire);
 
@@ -104,6 +108,7 @@ impl InnerRwLock {
             }
         }
     }
+    /// Implements try acquire write lock.
     pub fn try_acquire_write_lock(&self) -> Result<(), u32> {
         let mut waiting_wr = self.state.load(Ordering::Relaxed) & WAITING_WR;
 
@@ -126,6 +131,7 @@ impl InnerRwLock {
         }
     }
 
+    /// Implements unlock.
     pub fn unlock(&self) {
         let state = self.state.load(Ordering::Relaxed);
 
@@ -157,6 +163,7 @@ unsafe impl<T: ?Sized + Send> Send for RwLock<T> {}
 unsafe impl<T: ?Sized + Send + Sync> Sync for RwLock<T> {}
 
 impl<T> RwLock<T> {
+    /// Creates a new instance.
     pub const fn new(val: T) -> Self {
         Self {
             inner: InnerRwLock::new(Pshared::Private),
@@ -166,16 +173,19 @@ impl<T> RwLock<T> {
 }
 
 impl<T: ?Sized> RwLock<T> {
+    /// Implements read.
     pub fn read(&self) -> ReadGuard<'_, T> {
         self.inner.acquire_read_lock(None);
         unsafe { ReadGuard::new(self) }
     }
 
+    /// Implements write.
     pub fn write(&self) -> WriteGuard<'_, T> {
         self.inner.acquire_write_lock(None);
         unsafe { WriteGuard::new(self) }
     }
 
+    /// Implements try read.
     pub fn try_read(&self) -> Option<ReadGuard<'_, T>> {
         if self.inner.try_acquire_read_lock().is_ok() {
             Some(unsafe { ReadGuard::new(self) })
@@ -184,6 +194,7 @@ impl<T: ?Sized> RwLock<T> {
         }
     }
 
+    /// Implements try write.
     pub fn try_write(&self) -> Option<WriteGuard<'_, T>> {
         if self.inner.try_acquire_write_lock().is_ok() {
             Some(unsafe { WriteGuard::new(self) })
@@ -201,6 +212,10 @@ impl<T: ?Sized> !Send for ReadGuard<'_, T> {}
 unsafe impl<T: ?Sized + Sync> Sync for ReadGuard<'_, T> {}
 
 impl<'a, T: ?Sized> ReadGuard<'a, T> {
+    /// Creates a new instance.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn new(lock: &'a RwLock<T>) -> Self {
         Self { lock }
     }
@@ -209,6 +224,7 @@ impl<'a, T: ?Sized> ReadGuard<'a, T> {
 impl<'a, T: ?Sized> ops::Deref for ReadGuard<'a, T> {
     type Target = T;
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         // SAFETY: We have shared reference to the data.
         unsafe { &*self.lock.data.get() }
@@ -216,18 +232,21 @@ impl<'a, T: ?Sized> ops::Deref for ReadGuard<'a, T> {
 }
 
 impl<'a, T: ?Sized> Drop for ReadGuard<'a, T> {
+    /// Implements drop.
     fn drop(&mut self) {
         self.lock.inner.unlock();
     }
 }
 
 impl<'a, T: ?Sized + fmt::Debug> fmt::Debug for ReadGuard<'a, T> {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
 impl<'a, T: ?Sized + fmt::Display> fmt::Display for ReadGuard<'a, T> {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
     }
@@ -241,6 +260,10 @@ impl<T: ?Sized> !Send for WriteGuard<'_, T> {}
 unsafe impl<T: ?Sized + Sync> Sync for WriteGuard<'_, T> {}
 
 impl<'a, T: ?Sized> WriteGuard<'a, T> {
+    /// Creates a new instance.
+    ///
+    /// # Safety
+    /// The caller must uphold the required pointer and ABI invariants.
     unsafe fn new(lock: &'a RwLock<T>) -> Self {
         Self { lock }
     }
@@ -249,6 +272,7 @@ impl<'a, T: ?Sized> WriteGuard<'a, T> {
 impl<'a, T: ?Sized> ops::Deref for WriteGuard<'a, T> {
     type Target = T;
 
+    /// Implements deref.
     fn deref(&self) -> &Self::Target {
         // SAFETY: We have exclusive reference to the data.
         unsafe { &*self.lock.data.get() }
@@ -256,6 +280,7 @@ impl<'a, T: ?Sized> ops::Deref for WriteGuard<'a, T> {
 }
 
 impl<'a, T: ?Sized> ops::DerefMut for WriteGuard<'a, T> {
+    /// Implements deref mut.
     fn deref_mut(&mut self) -> &mut Self::Target {
         // SAFETY: We have exclusive reference to the data.
         unsafe { &mut *self.lock.data.get() }
@@ -263,18 +288,21 @@ impl<'a, T: ?Sized> ops::DerefMut for WriteGuard<'a, T> {
 }
 
 impl<'a, T: ?Sized> Drop for WriteGuard<'a, T> {
+    /// Implements drop.
     fn drop(&mut self) {
         self.lock.inner.unlock();
     }
 }
 
 impl<'a, T: ?Sized + fmt::Debug> fmt::Debug for WriteGuard<'a, T> {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
 impl<'a, T: ?Sized + fmt::Display> fmt::Display for WriteGuard<'a, T> {
+    /// Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
     }

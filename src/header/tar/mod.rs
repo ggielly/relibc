@@ -99,6 +99,7 @@ pub struct TarHeader {
 }
 
 impl Default for TarHeader {
+    /// Creates a new instance.
     fn default() -> Self {
         let mut header = Self {
             name: [0; NAME_SIZE],
